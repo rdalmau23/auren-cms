@@ -5,6 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Settings, Save, AlertCircle, CheckCircle, RefreshCw, Building, User, Globe } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { UserProfile, Center } from "@/types";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 export default function SettingsPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -246,15 +247,15 @@ export default function SettingsPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1">
                 <Globe size={14} /> Idioma de la interfaz
               </label>
-              <select
-                name="language"
+              <SearchableSelect
+                options={[
+                  { value: 'es', label: 'Español (es)' },
+                  { value: 'en', label: 'English (en)' },
+                ]}
                 value={profileForm.language}
-                onChange={handleProfileChange}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
-              >
-                <option value="es">Español (es)</option>
-                <option value="en">English (en)</option>
-              </select>
+                onChange={(val) => setProfileForm((prev) => ({ ...prev, language: val }))}
+                searchable={false}
+              />
             </div>
           </div>
 
@@ -297,17 +298,17 @@ export default function SettingsPage() {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Tipo de Centro
                 </label>
-                <select
-                  name="type"
+                <SearchableSelect
+                  options={[
+                    { value: 'CLINIC', label: 'Clínica' },
+                    { value: 'HOSPITAL', label: 'Hospital' },
+                    { value: 'PRIVATE_PRACTICE', label: 'Consulta Privada' },
+                    { value: 'HEALTH_CENTER', label: 'Centro de Salud' },
+                  ]}
                   value={centerForm.type}
-                  onChange={handleCenterChange}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500"
-                >
-                  <option value="CLINIC">Clínica</option>
-                  <option value="HOSPITAL">Hospital</option>
-                  <option value="PRIVATE_PRACTICE">Consulta Privada</option>
-                  <option value="HEALTH_CENTER">Centro de Salud</option>
-                </select>
+                  onChange={(val) => setCenterForm((prev) => ({ ...prev, type: val }))}
+                  searchable={false}
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">

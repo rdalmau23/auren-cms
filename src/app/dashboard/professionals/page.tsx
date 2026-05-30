@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 
 interface User {
   id: string;
@@ -252,16 +253,17 @@ export default function ProfessionalsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Especialidad *</label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: 'Psiquiatra', label: 'Psiquiatra' },
+                      { value: 'Psicólogo Clínico', label: 'Psicólogo Clínico' },
+                      { value: 'Enfermero Psiquiátrico', label: 'Enfermero Psiquiátrico' },
+                      { value: 'Trabajador Social', label: 'Trabajador Social' },
+                    ]}
                     value={speciality}
-                    onChange={(e) => setSpeciality(e.target.value)}
-                    className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="Psiquiatra">Psiquiatra</option>
-                    <option value="Psicólogo Clínico">Psicólogo Clínico</option>
-                    <option value="Enfermero Psiquiátrico">Enfermero Psiquiátrico</option>
-                    <option value="Trabajador Social">Trabajador Social</option>
-                  </select>
+                    onChange={setSpeciality}
+                    searchable={false}
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Nº Colegiado *</label>

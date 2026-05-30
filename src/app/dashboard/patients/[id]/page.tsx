@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
-import { Patient } from "@/types";
+import { Patient, Appointment } from "@/types";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { 
   ChevronLeft, Edit2, Check, X, Shield, Activity, 
   User, Heart, Cigarette, Beer, HelpCircle, Dumbbell, AlertTriangle,
@@ -176,16 +177,17 @@ export default function PatientDetailPage() {
         {isEditing && (
           <div className="flex flex-col gap-2 min-w-[200px]">
             <label className="text-xs font-semibold text-gray-500 uppercase">Nivel de Riesgo</label>
-            <select
-              value={formData.riskLevel}
-              onChange={(e) => handleInputChange("riskLevel", e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-            >
-              <option value="LOW">Bajo</option>
-              <option value="MODERATE">Moderado</option>
-              <option value="HIGH">Alto</option>
-              <option value="CRITICAL">Crítico</option>
-            </select>
+            <SearchableSelect
+              options={[
+                { value: 'LOW', label: 'Bajo' },
+                { value: 'MODERATE', label: 'Moderado' },
+                { value: 'HIGH', label: 'Alto' },
+                { value: 'CRITICAL', label: 'Crítico' },
+              ]}
+              value={formData.riskLevel || 'LOW'}
+              onChange={(val) => handleInputChange("riskLevel", val)}
+              searchable={false}
+            />
           </div>
         )}
       </div>
@@ -473,15 +475,16 @@ export default function PatientDetailPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-500 uppercase">Consumo de Bebidas Alcohólicas</label>
                 {isEditing ? (
-                  <select
-                    value={formData.alcoholConsumption}
-                    onChange={(e) => handleInputChange("alcoholConsumption", e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="NONE">Ninguno / Abstemio</option>
-                    <option value="OCCASIONAL">Ocasional / Social</option>
-                    <option value="FREQUENT">Frecuente / Abuso</option>
-                  </select>
+                  <SearchableSelect
+                    options={[
+                      { value: 'NONE', label: 'Ninguno / Abstemio' },
+                      { value: 'OCCASIONAL', label: 'Ocasional / Social' },
+                      { value: 'FREQUENT', label: 'Frecuente / Abuso' },
+                    ]}
+                    value={formData.alcoholConsumption || 'NONE'}
+                    onChange={(val) => handleInputChange("alcoholConsumption", val)}
+                    searchable={false}
+                  />
                 ) : (
                   <p className="text-sm text-gray-800 font-medium flex items-center gap-1.5">
                     <Beer size={16} className="text-amber-500" />
@@ -496,15 +499,16 @@ export default function PatientDetailPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-500 uppercase">Ejercicio Físico / Deporte</label>
                 {isEditing ? (
-                  <select
-                    value={formData.sportsActivity}
-                    onChange={(e) => handleInputChange("sportsActivity", e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="NONE">Sedentario / Ninguno</option>
-                    <option value="OCCASIONAL">Actividad física ocasional</option>
-                    <option value="REGULAR">Regular / Deportista</option>
-                  </select>
+                  <SearchableSelect
+                    options={[
+                      { value: 'NONE', label: 'Sedentario / Ninguno' },
+                      { value: 'OCCASIONAL', label: 'Actividad física ocasional' },
+                      { value: 'REGULAR', label: 'Práctica regular / Frecuente' },
+                    ]}
+                    value={formData.sportsActivity || 'NONE'}
+                    onChange={(val) => handleInputChange("sportsActivity", val)}
+                    searchable={false}
+                  />
                 ) : (
                   <p className="text-sm text-gray-800 font-medium flex items-center gap-1.5">
                     <Dumbbell size={16} className="text-blue-500" />
@@ -567,16 +571,17 @@ export default function PatientDetailPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Género</label>
                   {isEditing ? (
-                    <select
-                      value={formData.gender || ""}
-                      onChange={(e) => handleInputChange("gender", e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">Seleccionar...</option>
-                      <option value="MALE">Masculino</option>
-                      <option value="FEMALE">Femenino</option>
-                      <option value="OTHER">Otro / No binario</option>
-                    </select>
+                    <SearchableSelect
+                      options={[
+                        { value: '', label: 'Seleccionar...' },
+                        { value: 'MALE', label: 'Masculino' },
+                        { value: 'FEMALE', label: 'Femenino' },
+                        { value: 'OTHER', label: 'Otro / No binario' },
+                      ]}
+                      value={formData.gender || ''}
+                      onChange={(val) => handleInputChange("gender", val)}
+                      searchable={false}
+                    />
                   ) : (
                     <p className="text-sm text-gray-800 font-medium">
                       {patient.gender === "MALE" && "Masculino"}
@@ -591,21 +596,22 @@ export default function PatientDetailPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Grupo Sanguíneo</label>
                   {isEditing ? (
-                    <select
-                      value={formData.bloodType || ""}
-                      onChange={(e) => handleInputChange("bloodType", e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">Desconocido...</option>
-                      <option value="A+">A positivo (A+)</option>
-                      <option value="A-">A negativo (A-)</option>
-                      <option value="B+">B positivo (B+)</option>
-                      <option value="B-">B negativo (B-)</option>
-                      <option value="AB+">AB positivo (AB+)</option>
-                      <option value="AB-">AB negativo (AB-)</option>
-                      <option value="O+">O positivo (O+)</option>
-                      <option value="O-">O negativo (O-)</option>
-                    </select>
+                    <SearchableSelect
+                      options={[
+                        { value: '', label: 'Desconocido...' },
+                        { value: 'A+', label: 'A positivo (A+)' },
+                        { value: 'A-', label: 'A negativo (A-)' },
+                        { value: 'B+', label: 'B positivo (B+)' },
+                        { value: 'B-', label: 'B negativo (B-)' },
+                        { value: 'AB+', label: 'AB positivo (AB+)' },
+                        { value: 'AB-', label: 'AB negativo (AB-)' },
+                        { value: 'O+', label: 'O positivo (O+)' },
+                        { value: 'O-', label: 'O negativo (O-)' },
+                      ]}
+                      value={formData.bloodType || ''}
+                      onChange={(val) => handleInputChange("bloodType", val)}
+                      searchable={false}
+                    />
                   ) : (
                     <p className="text-sm text-gray-800 font-medium">
                       {patient.bloodType || "No declarado"}
@@ -617,18 +623,19 @@ export default function PatientDetailPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Estado Civil</label>
                   {isEditing ? (
-                    <select
-                      value={formData.civilStatus || ""}
-                      onChange={(e) => handleInputChange("civilStatus", e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">Seleccionar...</option>
-                      <option value="SINGLE">Soltero/a</option>
-                      <option value="MARRIED">Casado/a</option>
-                      <option value="DIVORCED">Divorciado/a</option>
-                      <option value="WIDOWED">Viudo/a</option>
-                      <option value="COHABITING">Unión de hecho</option>
-                    </select>
+                    <SearchableSelect
+                      options={[
+                        { value: '', label: 'Seleccionar...' },
+                        { value: 'SINGLE', label: 'Soltero/a' },
+                        { value: 'MARRIED', label: 'Casado/a' },
+                        { value: 'DIVORCED', label: 'Divorciado/a' },
+                        { value: 'WIDOWED', label: 'Viudo/a' },
+                        { value: 'COHABITING', label: 'Unión de hecho' },
+                      ]}
+                      value={formData.civilStatus || ''}
+                      onChange={(val) => handleInputChange("civilStatus", val)}
+                      searchable={false}
+                    />
                   ) : (
                     <p className="text-sm text-gray-800">
                       {patient.civilStatus === "SINGLE" && "Soltero/a"}
@@ -663,18 +670,19 @@ export default function PatientDetailPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Nivel de Estudios</label>
                   {isEditing ? (
-                    <select
-                      value={formData.educationLevel || ""}
-                      onChange={(e) => handleInputChange("educationLevel", e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">Seleccionar...</option>
-                      <option value="PRIMARY">Educación Primaria</option>
-                      <option value="SECONDARY">Educación Secundaria / Bachillerato</option>
-                      <option value="VOCATIONAL">Formación Profesional (FP)</option>
-                      <option value="UNIVERSITY">Estudios Universitarios</option>
-                      <option value="POSTGRADUATE">Postgrado / Máster / Doctorado</option>
-                    </select>
+                    <SearchableSelect
+                      options={[
+                        { value: '', label: 'Seleccionar...' },
+                        { value: 'PRIMARY', label: 'Educación Primaria' },
+                        { value: 'SECONDARY', label: 'Educación Secundaria / Bachillerato' },
+                        { value: 'VOCATIONAL', label: 'Formación Profesional (FP)' },
+                        { value: 'UNIVERSITY', label: 'Estudios Universitarios' },
+                        { value: 'POSTGRADUATE', label: 'Postgrado / Máster / Doctorado' },
+                      ]}
+                      value={formData.educationLevel || ''}
+                      onChange={(val) => handleInputChange("educationLevel", val)}
+                      searchable={false}
+                    />
                   ) : (
                     <p className="text-sm text-gray-800">
                       {patient.educationLevel === "PRIMARY" && "Educación Primaria"}
@@ -783,16 +791,17 @@ export default function PatientDetailPage() {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Estado Clínico-Administrativo</label>
                   {isEditing ? (
-                    <select
-                      value={formData.status}
-                      onChange={(e) => handleInputChange("status", e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="ACTIVE">Activo</option>
-                      <option value="DISCHARGED">De Alta</option>
-                      <option value="ON_LEAVE">De Permiso</option>
-                      <option value="WAITLIST">Lista de Espera</option>
-                    </select>
+                    <SearchableSelect
+                      options={[
+                        { value: 'ACTIVE', label: 'Activo' },
+                        { value: 'DISCHARGED', label: 'De Alta' },
+                        { value: 'ON_LEAVE', label: 'De Permiso' },
+                        { value: 'WAITLIST', label: 'Lista de Espera' },
+                      ]}
+                      value={formData.status || 'ACTIVE'}
+                      onChange={(val) => handleInputChange("status", val)}
+                      searchable={false}
+                    />
                   ) : (
                     <p className="text-sm text-gray-800 font-semibold">
                       {patient.status === "ACTIVE" && "Activo"}

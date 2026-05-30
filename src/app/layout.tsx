@@ -15,15 +15,22 @@ export const metadata: Metadata = {
   keywords: ["salud mental", "psicología", "psiquiatría", "gestión clínica", "pacientes"],
 };
 
-export default function RootLayout({
+import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const messages = await getMessages();
+
   return (
     <html lang="es" className={inter.variable}>
       <body className="font-sans antialiased bg-gray-50 text-gray-900">
-        <Providers>{children}</Providers>
+        <NextIntlClientProvider messages={messages}>
+          <Providers>{children}</Providers>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Save, AlertCircle, CheckCircle, Info } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { Center, Patient, PatientCreateRequest } from "@/types";
 
 export default function NewPatientPage() {
@@ -279,16 +280,16 @@ export default function NewPatientPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Género
               </label>
-              <select
-                name="gender"
+              <SearchableSelect
+                options={[
+                  { value: 'MALE', label: 'Masculino' },
+                  { value: 'FEMALE', label: 'Femenino' },
+                  { value: 'OTHER', label: 'Otro / No binario' },
+                ]}
                 value={formData.gender}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors appearance-none"
-              >
-                <option value="MALE">Masculino</option>
-                <option value="FEMALE">Femenino</option>
-                <option value="OTHER">Otro / No binario</option>
-              </select>
+                onChange={(val) => setFormData((prev) => ({ ...prev, gender: val }))}
+                searchable={false}
+              />
             </div>
           </div>
 
@@ -298,18 +299,18 @@ export default function NewPatientPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Estado Civil
               </label>
-              <select
-                name="civilStatus"
+              <SearchableSelect
+                options={[
+                  { value: 'SINGLE', label: 'Soltero/a' },
+                  { value: 'MARRIED', label: 'Casado/a' },
+                  { value: 'DIVORCED', label: 'Divorciado/a' },
+                  { value: 'WIDOWED', label: 'Viudo/a' },
+                  { value: 'PARTNER', label: 'Unión libre' },
+                ]}
                 value={formData.civilStatus}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              >
-                <option value="SINGLE">Soltero/a</option>
-                <option value="MARRIED">Casado/a</option>
-                <option value="DIVORCED">Divorciado/a</option>
-                <option value="WIDOWED">Viudo/a</option>
-                <option value="PARTNER">Unión libre</option>
-              </select>
+                onChange={(val) => setFormData((prev) => ({ ...prev, civilStatus: val }))}
+                searchable={false}
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -363,19 +364,16 @@ export default function NewPatientPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Centro Médico Asignado <span className="text-red-500">*</span>
               </label>
-              <select
-                name="centerId"
+              <SearchableSelect
+                options={centers.map((center) => ({
+                  value: center.id,
+                  label: center.name,
+                  sublabel: center.type,
+                }))}
                 value={formData.centerId}
-                onChange={handleInputChange}
-                required
-                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              >
-                {centers.map((center) => (
-                  <option key={center.id} value={center.id}>
-                    {center.name} ({center.type})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData((prev) => ({ ...prev, centerId: val }))}
+                searchable={true}
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -393,17 +391,17 @@ export default function NewPatientPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Nivel de Riesgo Clínico
               </label>
-              <select
-                name="riskLevel"
+              <SearchableSelect
+                options={[
+                  { value: 'LOW', label: 'Bajo' },
+                  { value: 'MODERATE', label: 'Moderado' },
+                  { value: 'HIGH', label: 'Alto' },
+                  { value: 'CRITICAL', label: 'Crítico' },
+                ]}
                 value={formData.riskLevel}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              >
-                <option value="LOW">Bajo</option>
-                <option value="MODERATE">Moderado</option>
-                <option value="HIGH">Alto</option>
-                <option value="CRITICAL">Crítico</option>
-              </select>
+                onChange={(val) => setFormData((prev) => ({ ...prev, riskLevel: val }))}
+                searchable={false}
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -523,31 +521,31 @@ export default function NewPatientPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Consumo de Alcohol
               </label>
-              <select
-                name="alcoholConsumption"
+              <SearchableSelect
+                options={[
+                  { value: 'NONE', label: 'No consume' },
+                  { value: 'OCCASIONAL', label: 'Ocasional (social)' },
+                  { value: 'FREQUENT', label: 'Frecuente / Abuso' },
+                ]}
                 value={formData.alcoholConsumption}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              >
-                <option value="NONE">No consume</option>
-                <option value="OCCASIONAL">Ocasional (social)</option>
-                <option value="FREQUENT">Frecuente / Abuso</option>
-              </select>
+                onChange={(val) => setFormData((prev) => ({ ...prev, alcoholConsumption: val }))}
+                searchable={false}
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Actividad Deportiva
               </label>
-              <select
-                name="sportsActivity"
+              <SearchableSelect
+                options={[
+                  { value: 'NONE', label: 'Sedentario' },
+                  { value: 'OCCASIONAL', label: 'Ocasional (1-2 veces/sem)' },
+                  { value: 'REGULAR', label: 'Regular (3+ veces/sem)' },
+                ]}
                 value={formData.sportsActivity}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
-              >
-                <option value="NONE">Sedentario</option>
-                <option value="OCCASIONAL">Ocasional (1-2 veces/sem)</option>
-                <option value="REGULAR">Regular (3+ veces/sem)</option>
-              </select>
+                onChange={(val) => setFormData((prev) => ({ ...prev, sportsActivity: val }))}
+                searchable={false}
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">

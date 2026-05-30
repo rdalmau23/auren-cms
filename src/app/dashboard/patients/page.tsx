@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Search, Filter, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import Link from "next/link";
 import { api } from "@/lib/api-client";
 import { Patient, PageResponse } from "@/types";
@@ -74,20 +75,23 @@ export default function PatientsPage() {
           />
         </div>
         
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setCurrentPage(0);
-          }}
-          className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 focus:outline-none transition-all"
-        >
-          <option value="">Todos los estados</option>
-          <option value="ACTIVE">Activos</option>
-          <option value="DISCHARGED">De Alta</option>
-          <option value="ON_LEAVE">De Permiso</option>
-          <option value="WAITLIST">Lista de Espera</option>
-        </select>
+        <div className="w-48">
+          <SearchableSelect
+            options={[
+              { value: '', label: 'Todos los estados' },
+              { value: 'ACTIVE', label: 'Activos' },
+              { value: 'DISCHARGED', label: 'De Alta' },
+              { value: 'ON_LEAVE', label: 'De Permiso' },
+              { value: 'WAITLIST', label: 'Lista de Espera' },
+            ]}
+            value={statusFilter}
+            onChange={(val) => {
+              setStatusFilter(val);
+              setCurrentPage(0);
+            }}
+            searchable={false}
+          />
+        </div>
       </div>
 
       {/* Error State */}
