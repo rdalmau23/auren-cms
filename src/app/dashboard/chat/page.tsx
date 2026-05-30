@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { useTranslations } from 'next-intl';
 
 interface User {
   id: string;
@@ -26,6 +27,7 @@ interface ChatMessage {
 }
 
 export default function ChatPage() {
+  const t = useTranslations('chat');
   const queryClient = useQueryClient();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [inputText, setInputText] = useState('');
@@ -102,8 +104,8 @@ export default function ChatPage() {
       {/* Left Sidebar - Chat List */}
       <div className="w-full md:w-80 bg-white rounded-2xl border border-gray-100 flex flex-col min-h-0 overflow-hidden shrink-0">
         <div className="p-4 border-b border-gray-50">
-          <h2 className="text-base font-bold text-gray-900">Mensajería Clínica</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Soporte y seguimiento de pacientes</p>
+          <h2 className="text-base font-bold text-gray-900">{t('title')}</h2>
+          <p className="text-xs text-gray-400 mt-0.5">{t('subtitle')}</p>
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-gray-50 p-2 space-y-1">
@@ -112,7 +114,7 @@ export default function ChatPage() {
               <div key={n} className="h-14 bg-gray-50 rounded-xl animate-pulse m-2" />
             ))
           ) : patients.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">No hay pacientes registrados</p>
+            <p className="text-xs text-gray-400 text-center py-6">{t('noPatients')}</p>
           ) : (
             patients.map((pat) => {
               const isSelected = selectedPatient?.id === pat.id;
@@ -137,6 +139,9 @@ export default function ChatPage() {
                         {pat.name} {pat.surname}
                       </h4>
                     </div>
+                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                      {t('startConversation')}
+                    </p>
                   </div>
                 </button>
               );
@@ -161,7 +166,7 @@ export default function ChatPage() {
                   </h3>
                   <div className="flex items-center space-x-1 mt-0.5">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] text-gray-400 font-medium">Paciente activo</span>
+                    <span className="text-[10px] text-gray-400 font-medium">{t('activePatient')}</span>
                   </div>
                 </div>
               </div>
@@ -170,11 +175,11 @@ export default function ChatPage() {
             {/* Message Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
               {isLoadingMessages ? (
-                <div className="h-full flex items-center justify-center text-gray-400">Cargando mensajes...</div>
+                <div className="h-full flex items-center justify-center text-gray-400">{t('loadingMessages')}</div>
               ) : activeMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center flex-col text-center p-6">
-                  <p className="text-sm text-gray-400 font-medium">No hay mensajes previos.</p>
-                  <p className="text-xs text-gray-400 mt-1">Escribe un mensaje abajo para comenzar el seguimiento clínico.</p>
+                  <p className="text-sm text-gray-400 font-medium">{t('noMessages')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{t('writeMessageToStart')}</p>
                 </div>
               ) : (
                 activeMessages.map((msg: any) => {
@@ -216,7 +221,7 @@ export default function ChatPage() {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Responder a ${selectedPatient.name}...`}
+                placeholder={t('replyTo', { name: selectedPatient.name })}
                 className="flex-1 text-sm px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
               <button
@@ -230,7 +235,7 @@ export default function ChatPage() {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
-            Selecciona un paciente a la izquierda para ver su chat.
+            {t('selectPatient')}
           </div>
         )}
       </div>
