@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 
 interface User {
@@ -25,38 +25,13 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-const PRESET_MOCK_CONVERSATIONS: Record<string, ChatMessage[]> = {
-  // Pre-seed conversation for Carlos López
-  'carlos': [
-    { id: '1', sender: 'patient', content: 'Hola doctor, he estado sintiendo un poco más de ansiedad por las mañanas.', timestamp: new Date(Date.now() - 3600000 * 4) },
-    { id: '2', sender: 'doctor', content: 'Hola Carlos. ¿Has estado tomando la Sertralina con el desayuno como indicamos?', timestamp: new Date(Date.now() - 3600000 * 3) },
-    { id: '3', sender: 'patient', content: 'Sí, todos los días. Aunque a veces me da un poco de náuseas al principio.', timestamp: new Date(Date.now() - 3600000 * 2) },
-    { id: '4', sender: 'doctor', content: 'Es normal durante las primeras semanas. Intenta tomarla con un vaso grande de agua.', timestamp: new Date(Date.now() - 3600000 * 1) },
-  ],
-  // Pre-seed conversation for Ana García
-  'ana': [
-    { id: '1', sender: 'patient', content: 'Doctor, una duda rápida, ¿puedo tomar Lorazepam si tengo una reunión importante mañana por la mañana?', timestamp: new Date(Date.now() - 3600000 * 24) },
-    { id: '2', sender: 'doctor', content: 'Hola Ana. El Lorazepam puede causarte algo de somnolencia residual. Si la reunión es temprano, tómalo al menos 8 horas antes.', timestamp: new Date(Date.now() - 3600000 * 23) },
-    { id: '3', sender: 'patient', content: 'Entendido, me lo tomaré temprano hoy. ¡Gracias!', timestamp: new Date(Date.now() - 3600000 * 22) },
-  ],
-};
-
-const SIMULATED_RESPONSES = [
-  'Perfecto, muchas gracias por la aclaración.',
-  'De acuerdo, seguiré sus indicaciones y nos vemos en la próxima consulta.',
-  'Vale, lo tendré en cuenta. Por cierto, hoy me he sentido bastante mejor.',
-  'Entendido doctor. Muchas gracias por responder tan rápido.',
-  '¿Hay algún problema si cambio la hora de la toma a la noche?',
-];
-
 export default function ChatPage() {
+  const queryClient = useQueryClient();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [conversations, setConversations] = useState<Record<string, ChatMessage[]>>(PRESET_MOCK_CONVERSATIONS);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch all patients
+  // Fetch all patients for sidebar
   const { data: patientsResponse, isLoading } = useQuery<{ content: Patient[] }>({
     queryKey: ['patients'],
     queryFn: async () => {
@@ -79,54 +54,48 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // 1. Get Conversation with selected patient
+  const { data: conversation } = useQuery({
+    queryKey: ['chat', 'conversation', selectedPatient?.id],
+    queryFn: async () => {
+      return await api.get<any>(`/v1/chat/conversations/with/${selectedPatient?.id}`);
+    },
+    enabled: !!selectedPatient?.id,
+  });
+
+  // 2. Get Messages for conversation
+  const { data: messagesData, isLoading: isLoadingMessages } = useQuery({
+    queryKey: ['chat', 'messages', conversation?.id],
+    queryFn: async () => {
+      return await api.get<any[]>(`/v1/chat/conversations/${conversation?.id}/messages`);
+    },
+    enabled: !!conversation?.id,
+    refetchInterval: 3000, // Basic polling
+  });
+
+  // 3. Send Message Mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async (text: string) => {
+      return await api.post(`/v1/chat/conversations/${conversation?.id}/messages`, { content: text });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'messages', conversation?.id] });
+    }
+  });
+
+  const activeMessages = messagesData || [];
+
   useEffect(() => {
     scrollToBottom();
-  }, [selectedPatient, conversations, isTyping]);
-
-  const getChatKey = (patient: Patient) => {
-    const nameLower = patient.name?.toLowerCase() || '';
-    if (nameLower.includes('carlos')) return 'carlos';
-    if (nameLower.includes('ana')) return 'ana';
-    return patient.id;
-  };
+  }, [activeMessages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !selectedPatient) return;
+    if (!inputText.trim() || !conversation?.id) return;
 
-    const chatKey = getChatKey(selectedPatient);
-    const userMessage: ChatMessage = {
-      id: Math.random().toString(),
-      sender: 'doctor',
-      content: inputText.trim(),
-      timestamp: new Date(),
-    };
-
-    // Update conversation state
-    setConversations((prev) => ({
-      ...prev,
-      [chatKey]: [...(prev[chatKey] || []), userMessage],
-    }));
+    sendMessageMutation.mutate(inputText.trim());
     setInputText('');
-
-    // Trigger typing indicator and reply
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const replyMessage: ChatMessage = {
-        id: Math.random().toString(),
-        sender: 'patient',
-        content: SIMULATED_RESPONSES[Math.floor(Math.random() * SIMULATED_RESPONSES.length)],
-        timestamp: new Date(),
-      };
-      setConversations((prev) => ({
-        ...prev,
-        [chatKey]: [...(prev[chatKey] || []), replyMessage],
-      }));
-    }, 2000);
   };
-
-  const activeMessages = selectedPatient ? conversations[getChatKey(selectedPatient)] || [] : [];
 
   return (
     <div className="h-[calc(100vh-10rem)] flex flex-col md:flex-row gap-6">
@@ -147,7 +116,6 @@ export default function ChatPage() {
           ) : (
             patients.map((pat) => {
               const isSelected = selectedPatient?.id === pat.id;
-              const lastMsg = conversations[getChatKey(pat)]?.slice(-1)[0];
               const initials = `${pat.name?.[0] || ''}${pat.surname?.[0] || ''}`.toUpperCase();
 
               return (
@@ -169,9 +137,6 @@ export default function ChatPage() {
                         {pat.name} {pat.surname}
                       </h4>
                     </div>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">
-                      {lastMsg ? lastMsg.content : 'Inicia una conversación...'}
-                    </p>
                   </div>
                 </button>
               );
@@ -204,14 +169,18 @@ export default function ChatPage() {
 
             {/* Message Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
-              {activeMessages.length === 0 ? (
+              {isLoadingMessages ? (
+                <div className="h-full flex items-center justify-center text-gray-400">Cargando mensajes...</div>
+              ) : activeMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center flex-col text-center p-6">
                   <p className="text-sm text-gray-400 font-medium">No hay mensajes previos.</p>
                   <p className="text-xs text-gray-400 mt-1">Escribe un mensaje abajo para comenzar el seguimiento clínico.</p>
                 </div>
               ) : (
-                activeMessages.map((msg) => {
-                  const isDoc = msg.sender === 'doctor';
+                activeMessages.map((msg: any) => {
+                  // In CMS, the current user is a professional, so they are not the patient.
+                  const isDoc = msg.senderId !== selectedPatient.id;
+                  
                   return (
                     <div
                       key={msg.id}
@@ -230,7 +199,7 @@ export default function ChatPage() {
                             isDoc ? 'text-indigo-200' : 'text-gray-400'
                           }`}
                         >
-                          {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>
@@ -238,15 +207,6 @@ export default function ChatPage() {
                 })
               )}
 
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="bg-white border border-gray-100 p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center space-x-1.5">
-                    <span className="h-2 w-2 bg-indigo-500 rounded-full animate-bounce" />
-                    <span className="h-2 w-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.2s]" />
-                    <span className="h-2 w-2 bg-indigo-500 rounded-full animate-bounce [animation-delay:0.4s]" />
-                  </div>
-                </div>
-              )}
               <div ref={messagesEndRef} />
             </div>
 
