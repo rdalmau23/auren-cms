@@ -19,7 +19,7 @@ export default function SchedulesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-neutral-900">{t('schedules')}</h1>
-        <Button variant="primary">{t('newSchedule')}</Button>
+        <Button variant="default" className="gap-2">{t('newSchedule')}</Button>
       </div>
 
       {isLoading ? (

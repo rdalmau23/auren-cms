@@ -27,7 +27,7 @@ export default async function RootLayout({
 
   return (
     <html lang="es" className={inter.variable}>
-      <body className="font-sans antialiased bg-gray-50 text-gray-900">
+      <body suppressHydrationWarning className="font-sans antialiased bg-gray-50 text-gray-900">
         <NextIntlClientProvider messages={messages}>
           <Providers>{children}</Providers>
         </NextIntlClientProvider>

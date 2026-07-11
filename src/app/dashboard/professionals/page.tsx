@@ -5,6 +5,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import { Modal } from '@/components/ui/Modal';
+import { User, Mail, Phone, Plus } from 'lucide-react';
 
 interface User {
   id: string;
@@ -85,19 +89,23 @@ export default function ProfessionalsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col h-full space-y-6 overflow-hidden">
+      <div className="flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Equipo Clínico</h1>
           <p className="mt-1 text-sm text-gray-500">Gestión de profesionales y especialidades de la clínica</p>
         </div>
-        <button
+        <Button
+          variant="indigo"
           onClick={() => setIsOpen(true)}
-          className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition duration-200 shadow-sm"
+          className="gap-2"
         >
-          + Invitar Profesional
-        </button>
+          <Plus size={18} />
+          Invitar Profesional
+        </Button>
       </div>
+
+      <div className="flex-1 min-h-0 overflow-y-auto pb-6">
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -125,16 +133,17 @@ export default function ProfessionalsPage() {
       ) : professionals.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center max-w-lg mx-auto mt-6">
           <div className="mx-auto w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-4">
-            👤
+            <User size={24} />
           </div>
           <h3 className="text-lg font-medium text-gray-900">No hay profesionales registrados</h3>
           <p className="mt-1 text-sm text-gray-500">Comienza invitando a un psicólogo, psiquiatra o enfermero al centro.</p>
-          <button
+          <Button
+            variant="indigo"
             onClick={() => setIsOpen(true)}
-            className="mt-4 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition duration-200"
+            className="mt-4"
           >
             Registrar Primer Profesional
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -165,139 +174,133 @@ export default function ProfessionalsPage() {
 
                 <div className="space-y-2 text-xs text-gray-500">
                   <div className="flex items-center space-x-2">
-                    <span>✉️</span>
+                    <Mail size={14} className="text-gray-400" />
                     <span className="truncate">{prof.user?.email}</span>
                   </div>
                   {prof.user?.phone && (
                     <div className="flex items-center space-x-2">
-                      <span>📞</span>
+                      <Phone size={14} className="text-gray-400" />
                       <span>{prof.user.phone}</span>
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center justify-between pt-2">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] uppercase font-bold text-green-600 tracking-wider">Activo</span>
-                  </div>
+                  <Badge variant="success" className="animate-in fade-in duration-500">
+                    Activo
+                  </Badge>
                 </div>
               </div>
             );
           })}
         </div>
       )}
+      </div>
 
       {/* Slide-over / Modal for invite professional */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl border border-gray-100 w-full max-w-md p-6 shadow-2xl relative animate-scale-up">
-            <button
-              onClick={() => setIsOpen(false)}
-              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 transition"
-            >
-              ✕
-            </button>
-            <h2 className="text-lg font-bold text-gray-950 mb-1">Registrar Profesional</h2>
-            <p className="text-xs text-gray-500 mb-4">Crea una ficha profesional y asóciala a su cuenta de correo.</p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre *</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Laura"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Apellidos *</label>
-                  <input
-                    type="text"
-                    required
-                    value={surname}
-                    onChange={(e) => setSurname(e.target.value)}
-                    className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Ribera"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Email *</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="laura.ribera@example.com"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Teléfono</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="655999888"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Especialidad *</label>
-                  <SearchableSelect
-                    options={[
-                      { value: 'Psiquiatra', label: 'Psiquiatra' },
-                      { value: 'Psicólogo Clínico', label: 'Psicólogo Clínico' },
-                      { value: 'Enfermero Psiquiátrico', label: 'Enfermero Psiquiátrico' },
-                      { value: 'Trabajador Social', label: 'Trabajador Social' },
-                    ]}
-                    value={speciality}
-                    onChange={setSpeciality}
-                    searchable={false}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Nº Colegiado *</label>
-                  <input
-                    type="text"
-                    required
-                    value={licenseNumber}
-                    onChange={(e) => setLicenseNumber(e.target.value)}
-                    className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="COL-77889"
-                  />
-                </div>
-              </div>
-
-              <div className="flex space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-500 transition disabled:opacity-50"
-                >
-                  {createMutation.isPending ? 'Guardando...' : 'Registrar'}
-                </button>
-              </div>
-            </form>
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="Registrar Profesional"
+        description="Crea una ficha profesional y asóciala a su cuenta de correo."
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Nombre *</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Laura"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Apellidos *</label>
+              <input
+                type="text"
+                required
+                value={surname}
+                onChange={(e) => setSurname(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Ribera"
+              />
+            </div>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Email *</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="laura.ribera@example.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Teléfono</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="655999888"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Especialidad *</label>
+              <SearchableSelect
+                options={[
+                  { value: 'Psiquiatra', label: 'Psiquiatra' },
+                  { value: 'Psicólogo Clínico', label: 'Psicólogo Clínico' },
+                  { value: 'Enfermero Psiquiátrico', label: 'Enfermero Psiquiátrico' },
+                  { value: 'Trabajador Social', label: 'Trabajador Social' },
+                ]}
+                value={speciality}
+                onChange={setSpeciality}
+                searchable={false}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Nº Colegiado *</label>
+              <input
+                type="text"
+                required
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="COL-77889"
+              />
+            </div>
+          </div>
+
+          <div className="flex space-x-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              variant="indigo"
+              isLoading={createMutation.isPending}
+              className="flex-1"
+            >
+              Registrar
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

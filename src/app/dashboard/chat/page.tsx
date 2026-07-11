@@ -100,21 +100,21 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-10rem)] flex flex-col md:flex-row gap-6">
+    <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-6 overflow-hidden">
       {/* Left Sidebar - Chat List */}
-      <div className="w-full md:w-80 bg-white rounded-2xl border border-gray-100 flex flex-col min-h-0 overflow-hidden shrink-0">
-        <div className="p-4 border-b border-gray-50">
-          <h2 className="text-base font-bold text-gray-900">{t('title')}</h2>
-          <p className="text-xs text-gray-400 mt-0.5">{t('subtitle')}</p>
+      <div className="w-full md:w-80 bg-white rounded-2xl border border-neutral-100 flex flex-col min-h-0 overflow-hidden shrink-0">
+        <div className="p-4 border-b border-neutral-50">
+          <h2 className="text-base font-bold text-neutral-900">{t('title')}</h2>
+          <p className="text-xs text-neutral-400 mt-0.5">{t('subtitle')}</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-50 p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto divide-y divide-neutral-50 p-2 space-y-1">
           {isLoading ? (
             [1, 2, 3].map((n) => (
-              <div key={n} className="h-14 bg-gray-50 rounded-xl animate-pulse m-2" />
+              <div key={n} className="h-14 bg-neutral-50 rounded-xl animate-pulse m-2" />
             ))
           ) : patients.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">{t('noPatients')}</p>
+            <p className="text-xs text-neutral-400 text-center py-6">{t('noPatients')}</p>
           ) : (
             patients.map((pat) => {
               const isSelected = selectedPatient?.id === pat.id;
@@ -126,20 +126,20 @@ export default function ChatPage() {
                   onClick={() => setSelectedPatient(pat)}
                   className={`w-full flex items-center space-x-3 p-3 rounded-xl transition text-left border ${
                     isSelected
-                      ? 'bg-indigo-50/50 border-indigo-100/50'
-                      : 'border-transparent hover:bg-gray-50/70'
+                      ? 'bg-primary-50 border-primary-100'
+                      : 'border-transparent hover:bg-neutral-50'
                   }`}
                 >
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-inner shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-primary-600 text-white flex items-center justify-center font-bold text-xs shadow-inner shrink-0">
                     {initials}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between items-baseline">
-                      <h4 className="text-sm font-semibold text-gray-900 truncate">
+                      <h4 className="text-sm font-semibold text-neutral-900 truncate">
                         {pat.name} {pat.surname}
                       </h4>
                     </div>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">
+                    <p className="text-xs text-neutral-500 truncate mt-0.5">
                       {t('startConversation')}
                     </p>
                   </div>
@@ -151,35 +151,35 @@ export default function ChatPage() {
       </div>
 
       {/* Right Area - Conversation Box */}
-      <div className="flex-1 bg-white rounded-2xl border border-gray-100 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 bg-white rounded-2xl border border-neutral-100 flex flex-col min-h-0 overflow-hidden">
         {selectedPatient ? (
           <>
             {/* Header */}
-            <div className="p-4 border-b border-gray-50 flex items-center justify-between shrink-0 bg-gray-50/20">
+            <div className="p-4 border-b border-neutral-50 flex items-center justify-between shrink-0 bg-neutral-50">
               <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-xs shadow-inner">
+                <div className="h-10 w-10 rounded-xl bg-primary-600 text-white flex items-center justify-center font-bold text-xs shadow-inner">
                   {`${selectedPatient.name?.[0] || ''}${selectedPatient.surname?.[0] || ''}`.toUpperCase()}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">
+                  <h3 className="text-sm font-bold text-neutral-900">
                     {selectedPatient.name} {selectedPatient.surname}
                   </h3>
                   <div className="flex items-center space-x-1 mt-0.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] text-gray-400 font-medium">{t('activePatient')}</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-success-500 animate-pulse" />
+                    <span className="text-[10px] text-neutral-400 font-medium">{t('activePatient')}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Message Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-neutral-50/30">
               {isLoadingMessages ? (
-                <div className="h-full flex items-center justify-center text-gray-400">{t('loadingMessages')}</div>
+                <div className="h-full flex items-center justify-center text-neutral-400">{t('loadingMessages')}</div>
               ) : activeMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center flex-col text-center p-6">
-                  <p className="text-sm text-gray-400 font-medium">{t('noMessages')}</p>
-                  <p className="text-xs text-gray-400 mt-1">{t('writeMessageToStart')}</p>
+                  <p className="text-sm text-neutral-400 font-medium">{t('noMessages')}</p>
+                  <p className="text-xs text-neutral-400 mt-1">{t('writeMessageToStart')}</p>
                 </div>
               ) : (
                 activeMessages.map((msg: any) => {
@@ -194,14 +194,14 @@ export default function ChatPage() {
                       <div
                         className={`max-w-[70%] p-3 rounded-2xl text-sm shadow-sm ${
                           isDoc
-                            ? 'bg-indigo-600 text-white rounded-tr-none'
-                            : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none'
+                            ? 'bg-primary-600 text-white rounded-tr-none'
+                            : 'bg-white text-neutral-800 border border-neutral-100 rounded-tl-none'
                         }`}
                       >
                         <p className="leading-relaxed">{msg.content}</p>
                         <span
                           className={`block text-[9px] mt-1.5 text-right ${
-                            isDoc ? 'text-indigo-200' : 'text-gray-400'
+                            isDoc ? 'text-primary-200' : 'text-neutral-400'
                           }`}
                         >
                           {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -216,25 +216,25 @@ export default function ChatPage() {
             </div>
 
             {/* Input Form */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-50 flex items-center space-x-3 shrink-0">
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-neutral-50 flex items-center space-x-3 shrink-0">
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={t('replyTo', { name: selectedPatient.name })}
-                className="flex-1 text-sm px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 text-sm px-4 py-2.5 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="h-10 w-10 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center justify-center transition disabled:opacity-50 font-semibold"
+                className="h-10 w-10 bg-primary-600 hover:bg-primary-500 text-white rounded-xl flex items-center justify-center transition disabled:opacity-50 font-semibold"
               >
                 ➔
               </button>
             </form>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+          <div className="flex-1 flex items-center justify-center text-neutral-400 text-sm">
             {t('selectPatient')}
           </div>
         )}

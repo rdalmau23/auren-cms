@@ -3,10 +3,13 @@
 export interface Patient {
   id: string;
   userId: string;
+  patientCode: string;
   name: string;
   surname: string;
   email: string;
   phone: string | null;
+  dni: string | null;
+  nhc: string | null;
   centerId: string;
   centerName: string;
   birthDate: string | null;
@@ -45,7 +48,11 @@ export interface PatientCreateRequest {
   name?: string;
   surname?: string;
   phone?: string;
-  centerId: string;
+  dni?: string;
+  nhc?: string;
+  centerId?: string; // Optional now, since we infer it for non-admins
+  primaryProfessionalId?: string;
+  extraProfessionalIds?: string[];
   birthDate?: string;
   gender?: string;
   diagnosis?: string;
@@ -172,6 +179,14 @@ export interface SurveyResponse {
   surveyTemplateId: string;
   score: number | null;
   completedAt: string;
+  surveyTemplate: SurveyTemplate;
+  answers?: SurveyAnswer[];
+}
+
+export interface SurveyAnswer {
+  id: string;
+  questionId: string;
+  answer: string;
 }
 
 // ─── Mood Types ─────────────────────────────────────────────
@@ -218,7 +233,7 @@ export interface Center {
 export interface DashboardStats {
   activePatients: number;
   visitsToday: number;
-  pendingSurveys: number;
+  activeAlerts: number;
   criticalAlerts: number;
   upcomingVisits: {
     id: string;
@@ -227,11 +242,16 @@ export interface DashboardStats {
     status: string;
     type: string;
   }[];
-  recentAlerts: {
+  clinicalAlerts: {
+    id: string;
     patientId: string;
     patientName: string;
-    riskLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
-    message: string;
+    alertType: string;
+    severity: string;
+    title: string;
+    description: string;
+    status: string;
+    createdAt: string;
   }[];
 }
 
@@ -245,4 +265,11 @@ export interface UserProfile {
   professionalId: string;
   speciality: string;
   licenseNumber: string;
+}
+
+export interface AlertConfig {
+  maxDaysWithoutMood: number;
+  maxDaysWithoutMedication: number;
+  criticalAnxietyThreshold: number;
+  criticalDepressionThreshold: number;
 }

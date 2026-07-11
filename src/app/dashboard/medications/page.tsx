@@ -13,23 +13,25 @@ export default function MedicationsPage() {
   const [activeTab, setActiveTab] = useState('catalog');
 
   const tabs = [
-    { id: 'catalog', label: 'Catálogo de Fármacos', icon: <Pill size={16} /> },
-    { id: 'schedules', label: 'Pautas', icon: <Calendar size={16} /> },
-    { id: 'treatments', label: 'Tratamientos Activos', icon: <Activity size={16} /> },
+    { id: 'catalog', label: t('catalogTab'), icon: <Pill size={16} /> },
+    { id: 'schedules', label: t('schedulesTab'), icon: <Calendar size={16} /> },
+    { id: 'treatments', label: t('treatmentsTab'), icon: <Activity size={16} /> },
   ];
 
   return (
-    <div className="space-y-2">
-      <div className="mb-2">
+    <div className="flex flex-col h-full space-y-4 overflow-hidden">
+      <div className="shrink-0">
         <h1 className="text-2xl font-bold text-neutral-900">{t('title')}</h1>
         <p className="text-sm text-neutral-500 mt-1">
-          Gestiona los medicamentos, pautas predefinidas y tratamientos de los pacientes.
+          {t('subtitle')}
         </p>
       </div>
 
-      <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      <div className="shrink-0">
+        <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
 
-      <div className="pt-2">
+      <div className="flex-1 min-h-0 overflow-y-auto pt-2">
         {activeTab === 'catalog' && <CatalogTab />}
         {activeTab === 'schedules' && <SchedulesTab />}
         {activeTab === 'treatments' && <TreatmentsTab />}

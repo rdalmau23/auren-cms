@@ -2,23 +2,32 @@
 
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Calendar, Users, AlertTriangle, Clock, RefreshCw } from "lucide-react";
+import { Activity, Calendar, Users, AlertTriangle, RefreshCw, Pill, ClipboardList, MessageSquare, Moon } from "lucide-react";
 import { api } from "@/lib/api-client";
 import { DashboardStats } from "@/types";
 import Link from "next/link";
+import { GeneralActivityChart } from "./components/GeneralActivityChart";
 
-const riskColors = {
-  LOW: "bg-emerald-50 text-emerald-700 border-emerald-100",
+const severityColors: Record<string, string> = {
+  LOW: "bg-gray-50 text-gray-700 border-gray-200",
   MODERATE: "bg-amber-50 text-amber-700 border-amber-100",
   HIGH: "bg-orange-50 text-orange-700 border-orange-100",
   CRITICAL: "bg-red-50 text-red-700 border-red-100",
 };
 
-const riskLabels = {
+const severityLabels: Record<string, string> = {
   LOW: "Bajo",
   MODERATE: "Moderado",
   HIGH: "Alto",
   CRITICAL: "Crítico",
+};
+
+const getAlertIcon = (type: string) => {
+  if (type.includes("MOOD") || type.includes("ANXIETY")) return <Activity size={18} />;
+  if (type.includes("MEDICATION")) return <Pill size={18} />;
+  if (type.includes("SLEEP")) return <Moon size={18} />;
+  if (type.includes("APPOINTMENT")) return <Calendar size={18} />;
+  return <AlertTriangle size={18} />;
 };
 
 export default function DashboardPage() {
@@ -29,43 +38,55 @@ export default function DashboardPage() {
     },
   });
 
-  const stats = [
+  const modules = [
     {
-      label: "Pacientes activos",
+      label: "Pacientes",
       value: data?.activePatients ?? 0,
       description: "Pacientes en tratamiento activo",
       icon: Users,
-      color: "blue",
       bgClass: "bg-blue-50 text-blue-600",
-      textClass: "text-blue-700",
+      href: "/dashboard/patients"
     },
     {
-      label: "Visitas hoy",
+      label: "Agenda",
       value: data?.visitsToday ?? 0,
       description: "Citas programadas para hoy",
       icon: Calendar,
-      color: "emerald",
       bgClass: "bg-emerald-50 text-emerald-600",
-      textClass: "text-emerald-700",
+      href: "/dashboard/appointments"
     },
     {
-      label: "Cuestionarios pendientes",
-      value: data?.pendingSurveys ?? 0,
-      description: "Respuestas pendientes de revisión",
-      icon: Activity,
-      color: "amber",
-      bgClass: "bg-amber-50 text-amber-600",
-      textClass: "text-amber-700",
-    },
-    {
-      label: "Alertas críticas",
-      value: data?.criticalAlerts ?? 0,
-      description: "Pacientes con riesgo crítico",
+      label: "Alertas",
+      value: (data?.activeAlerts ?? 0) + (data?.criticalAlerts ?? 0),
+      description: "Requieren revisión clínica",
       icon: AlertTriangle,
-      color: "red",
       bgClass: "bg-red-50 text-red-600",
-      textClass: "text-red-700",
+      href: "/dashboard/alerts"
     },
+    {
+      label: "Cuestionarios",
+      value: "Ver",
+      description: "Evaluaciones clínicas",
+      icon: ClipboardList,
+      bgClass: "bg-indigo-50 text-indigo-600",
+      href: "/dashboard/surveys"
+    },
+    {
+      label: "Medicación",
+      value: "Ver",
+      description: "Pautas y tratamientos",
+      icon: Pill,
+      bgClass: "bg-purple-50 text-purple-600",
+      href: "/dashboard/medications"
+    },
+    {
+      label: "Chat",
+      value: "Ver",
+      description: "Mensajería con pacientes",
+      icon: MessageSquare,
+      bgClass: "bg-teal-50 text-teal-600",
+      href: "/dashboard/chat"
+    }
   ];
 
   if (isLoading) {
@@ -83,8 +104,7 @@ export default function DashboardPage() {
             <div key={i} className="bg-white rounded-2xl border border-gray-200 p-5 h-32"></div>
           ))}
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
           <div className="bg-white rounded-2xl border border-gray-200 p-6 h-80"></div>
           <div className="bg-white rounded-2xl border border-gray-200 p-6 h-80"></div>
         </div>
@@ -112,9 +132,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col h-full space-y-6 overflow-hidden">
       {/* Page header */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Panel de control</h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -123,119 +143,43 @@ export default function DashboardPage() {
         </div>
         <button
           onClick={() => refetch()}
-          className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-gray-500"
+          className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-sm text-gray-500 cursor-pointer"
           title="Actualizar datos"
         >
           <RefreshCw size={18} className={isFetching ? "animate-spin" : ""} />
         </button>
       </div>
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-shadow duration-200"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">{stat.label}</p>
-                <p className="mt-1 text-3xl font-bold text-gray-900">{stat.value}</p>
-              </div>
-              <div className={`p-3 rounded-xl ${stat.bgClass}`}>
-                <stat.icon size={24} />
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-gray-400 font-normal">{stat.description}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Dashboard details split */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Visitas de hoy */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Visitas de hoy</h2>
+      {/* Scrollable Content */}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-1">
+        {/* Stats grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {modules.map((mod) => (
             <Link
-              href="/dashboard/appointments"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+              key={mod.label}
+              href={mod.href}
+              className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200 group flex flex-col justify-between h-40"
             >
-              Ver agenda completa
-            </Link>
-          </div>
-          <div className="space-y-3 flex-1">
-            {!data?.upcomingVisits || data.upcomingVisits.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                <Clock size={32} className="mb-2 text-gray-300" />
-                <p className="text-sm">No hay visitas programadas para hoy</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-500 group-hover:text-gray-700 transition-colors">{mod.label}</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">{mod.value}</p>
+                </div>
+                <div className={`p-3 rounded-xl ${mod.bgClass} group-hover:scale-110 transition-transform`}>
+                  <mod.icon size={28} />
+                </div>
               </div>
-            ) : (
-              data.upcomingVisits.map((visit) => {
-                const date = new Date(visit.startTime);
-                const formattedTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                return (
-                  <div key={visit.id} className="flex items-center gap-4 p-3 rounded-xl bg-gray-50">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm">
-                      {visit.patientName.split(" ").map(n => n[0]).slice(0, 2).join("")}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{visit.patientName}</p>
-                      <p className="text-xs text-gray-500">
-                        {formattedTime} — {visit.type === "INDIVIDUAL" ? "Sesión Individual" : "Sesión Familiar"}
-                      </p>
-                    </div>
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                      visit.status === "SCHEDULED" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"
-                    }`}>
-                      {visit.status === "SCHEDULED" ? "Programada" : "Confirmada"}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
+              <p className="mt-4 text-xs text-gray-400 font-normal flex items-center justify-between">
+                <span>{mod.description}</span>
+                <span className="text-gray-300 group-hover:text-gray-600 transition-colors">&rarr;</span>
+              </p>
+            </Link>
+          ))}
         </div>
 
-        {/* Alertas recientes */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Alertas clínicas y de riesgo</h2>
-            <Link
-              href="/dashboard/patients"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700"
-            >
-              Ver todos los pacientes
-            </Link>
-          </div>
-          <div className="space-y-3 flex-1">
-            {!data?.recentAlerts || data.recentAlerts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
-                <Users size={32} className="mb-2 text-gray-300" />
-                <p className="text-sm">No hay pacientes con alertas de riesgo activo</p>
-              </div>
-            ) : (
-              data.recentAlerts.map((alert) => (
-                <div
-                  key={alert.patientId}
-                  className={`flex items-start gap-3 p-3 rounded-xl border ${riskColors[alert.riskLevel]}`}
-                >
-                  <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">{alert.patientName}</p>
-                      <span className="text-xs font-medium uppercase tracking-wider">
-                        Riesgo {riskLabels[alert.riskLevel]}
-                      </span>
-                    </div>
-                    <p className="text-xs mt-1 line-clamp-2 opacity-90">
-                      {alert.message || "Paciente bajo observación médica."}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+        {/* ── General Activity Chart ── */}
+        <div className="mt-6 h-[350px]">
+          <GeneralActivityChart />
         </div>
       </div>
     </div>

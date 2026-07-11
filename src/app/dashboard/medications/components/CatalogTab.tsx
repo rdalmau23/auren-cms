@@ -6,8 +6,9 @@ import { api } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 import { Medication } from '@/types';
 import { SlideOver } from '@/components/ui/SlideOver';
-import { Pill, Droplet, Search, Plus, MoreHorizontal } from 'lucide-react';
+import { Pill, Droplet, Search, Plus, Edit2, Trash2 } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { toast } from 'sonner';
 
 export function CatalogTab() {
   const t = useTranslations('medications');
@@ -15,6 +16,7 @@ export function CatalogTab() {
   const queryClient = useQueryClient();
   const [isSlideOverOpen, setSlideOverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingMed, setEditingMed] = useState<Medication | null>(null);
   
   // Form State
   const [name, setName] = useState("");
@@ -33,8 +35,40 @@ export function CatalogTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['medications'] });
+      toast.success('Fármaco creado correctamente');
       setSlideOverOpen(false);
       resetForm();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Error al crear el fármaco');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: any }) => {
+      return await api.put<Medication>(`/v1/medications/${id}`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medications'] });
+      toast.success('Fármaco actualizado correctamente');
+      setSlideOverOpen(false);
+      resetForm();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Error al actualizar el fármaco');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await api.delete(`/v1/medications/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['medications'] });
+      toast.success('Fármaco eliminado correctamente');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Error al eliminar el fármaco. Es posible que esté asociado a una pauta o tratamiento activo.');
     },
   });
 
@@ -43,17 +77,39 @@ export function CatalogTab() {
     setActiveSubstance("");
     setFormType("TABLET");
     setStrength("");
+    setEditingMed(null);
+  };
+
+  const handleEdit = (med: Medication) => {
+    setEditingMed(med);
+    setName(med.name);
+    setActiveSubstance(med.activeSubstance || "");
+    setFormType(med.form);
+    setStrength(med.strength || "");
+    setSlideOverOpen(true);
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm('¿Seguro que deseas eliminar este fármaco del catálogo?')) {
+      deleteMutation.mutate(id);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
-    createMutation.mutate({
+    const payload = {
       name,
       activeSubstance: activeSubstance || undefined,
       form: formType,
       strength: strength || undefined
-    });
+    };
+
+    if (editingMed) {
+      updateMutation.mutate({ id: editingMed.id, payload });
+    } else {
+      createMutation.mutate(payload);
+    }
   };
 
   const getFormIcon = (form: string) => {
@@ -85,8 +141,11 @@ export function CatalogTab() {
           />
         </div>
         <button
-          onClick={() => setSlideOverOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+          onClick={() => {
+            resetForm();
+            setSlideOverOpen(true);
+          }}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
         >
           <Plus size={18} />
           Nuevo fármaco
@@ -125,7 +184,6 @@ export function CatalogTab() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{med.name}</p>
-                          <p className="text-xs text-gray-500 line-clamp-1">{med.id.split('-')[0]}</p>
                         </div>
                       </div>
                     </td>
@@ -142,9 +200,20 @@ export function CatalogTab() {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all">
-                        <MoreHorizontal size={18} />
+                    <td className="px-6 py-4 text-right space-x-1 whitespace-nowrap">
+                      <button
+                        onClick={() => handleEdit(med)}
+                        className="inline-flex items-center p-1.5 text-gray-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                        title="Editar"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(med.id)}
+                        className="inline-flex items-center p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -155,12 +224,15 @@ export function CatalogTab() {
         </div>
       )}
 
-      {/* SlideOver for New Medication */}
+      {/* SlideOver for Add/Edit Medication */}
       <SlideOver
         open={isSlideOverOpen}
-        onClose={() => setSlideOverOpen(false)}
-        title="Nuevo fármaco"
-        description="Añade un medicamento a la base de datos de Auren."
+        onClose={() => {
+          setSlideOverOpen(false);
+          resetForm();
+        }}
+        title={editingMed ? "Editar fármaco" : "Nuevo fármaco"}
+        description={editingMed ? "Actualiza los detalles de este medicamento." : "Añade un medicamento a la base de datos de Auren."}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
@@ -171,7 +243,7 @@ export function CatalogTab() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-gray-900 font-medium" 
                 placeholder="Ej. Orfidal" 
               />
             </div>
@@ -181,7 +253,7 @@ export function CatalogTab() {
                 type="text" 
                 value={activeSubstance}
                 onChange={(e) => setActiveSubstance(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-gray-900 font-medium" 
                 placeholder="Ej. Lorazepam" 
               />
             </div>
@@ -206,7 +278,7 @@ export function CatalogTab() {
                   type="text" 
                   value={strength}
                   onChange={(e) => setStrength(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" 
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all text-gray-900 font-medium" 
                   placeholder="Ej. 1mg" 
                 />
               </div>
@@ -220,16 +292,16 @@ export function CatalogTab() {
                 setSlideOverOpen(false);
                 resetForm();
               }}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={createMutation.isPending}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm disabled:opacity-50"
+              disabled={createMutation.isPending || updateMutation.isPending}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
             >
-              {createMutation.isPending ? 'Guardando...' : 'Guardar fármaco'}
+              {createMutation.isPending || updateMutation.isPending ? 'Guardando...' : 'Guardar fármaco'}
             </button>
           </div>
         </form>

@@ -3,10 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { useSession } from 'next-auth/react';
+import { SlideOver } from '@/components/ui/SlideOver';
+import { AppointmentCalendar, AppointmentEvent } from './components/AppointmentCalendar';
+import { CalendarIcon, Plus } from 'lucide-react';
 
 interface User {
   id: string;
@@ -50,24 +55,65 @@ interface UserProfile {
 }
 
 export default function AppointmentsPage() {
+  const t = useTranslations('appointments');
   const queryClient = useQueryClient();
+  const { data: session, status } = useSession();
+  const sessionLoading = status === 'loading';
+  const roles: string[] = (session as any)?.roles || [];
+  const isAdmin = roles.includes('SUPER_ADMIN') || roles.includes('CENTER_ADMIN');
+
+  // Helpers to get initial date and rounded hours YYYY-MM-DD and HH:MM
+  const getLocalDateString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getRoundedLocalTimeStrings = () => {
+    const now = new Date();
+    const minutes = now.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 30) * 30;
+    now.setMinutes(roundedMinutes);
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+
+    const formatTime = (d: Date) => {
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    };
+
+    const start = formatTime(now);
+    now.setHours(now.getHours() + 1);
+    const end = formatTime(now);
+
+    return { start, end };
+  };
 
   // Form State
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedProfessionalId, setSelectedProfessionalId] = useState('');
-  const [date, setDate] = useState('');
-  const [startTimeStr, setStartTimeStr] = useState('');
-  const [endTimeStr, setEndTimeStr] = useState('');
+  const [date, setDate] = useState(getLocalDateString());
+  const [startTimeStr, setStartTimeStr] = useState('09:00');
+  const [endTimeStr, setEndTimeStr] = useState('10:00');
   const [type, setType] = useState('INDIVIDUAL');
   const [notes, setNotes] = useState('');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentEvent | null>(null);
 
   // Fetch logged-in user profile to get professionalId
-  const { data: profile } = useQuery<UserProfile>({
-    queryKey: ['userProfile'],
+  const { data: profile } = useQuery<UserProfile | null>({
+    queryKey: ['userProfile', (session as any)?.accessToken],
     queryFn: async () => {
-      const response = await api.get<UserProfile>('/v1/users/me');
+      const token = (session as any)?.accessToken;
+      if (!token) return null;
+      const response = await api.get<UserProfile>('/v1/users/me', { token });
       return response;
     },
+    enabled: !!(session as any)?.accessToken,
   });
 
   // Set default professional to self when profile loads
@@ -75,28 +121,80 @@ export default function AppointmentsPage() {
     setSelectedProfessionalId(profile.professionalId);
   }
 
-  // Fetch appointments for this professional
+  // Fetch appointments (all if admin, specific professional if not)
   const { data: appointmentsResponse, isLoading: loadingAppointments } = useQuery<{ content: Appointment[] }>({
-    queryKey: ['appointments', profile?.professionalId],
+    queryKey: ['appointments', isAdmin, profile?.professionalId, (session as any)?.accessToken],
     queryFn: async () => {
-      if (!profile?.professionalId) return { content: [] };
-      const response = await api.get<{ content: Appointment[] }>(
-        `/v1/appointments/professional/${profile.professionalId}?size=50`
-      );
-      return response;
+      const token = (session as any)?.accessToken;
+      if (!token) return { content: [] };
+      if (isAdmin) {
+        const response = await api.get<{ content: Appointment[] }>('/v1/appointments?size=100', { token });
+        return response;
+      } else {
+        if (!profile?.professionalId) return { content: [] };
+        const response = await api.get<{ content: Appointment[] }>(
+          `/v1/appointments/professional/${profile.professionalId}?size=50`,
+          { token }
+        );
+        return response;
+      }
     },
-    enabled: !!profile?.professionalId,
+    enabled: !sessionLoading && !!(session as any)?.accessToken && (isAdmin || !!profile?.professionalId),
   });
 
   const appointments = appointmentsResponse?.content || [];
 
+  const filteredAppointments = appointments.filter((app) => {
+    const now = new Date();
+    const isPastDate = new Date(app.startTime) < now;
+
+    if (activeTab === 'cancelled') {
+      return app.status === 'CANCELLED' || app.status === 'NO_SHOW';
+    }
+
+    if (app.status === 'CANCELLED' || app.status === 'NO_SHOW') {
+      return false;
+    }
+
+    if (activeTab === 'upcoming') {
+      return !isPastDate && app.status !== 'COMPLETED';
+    }
+
+    if (activeTab === 'past') {
+      return isPastDate || app.status === 'COMPLETED';
+    }
+
+    return true;
+  });
+
+  const calendarEvents: AppointmentEvent[] = appointments.map((app) => ({
+    id: app.id,
+    title: `${app.patientName} - ${app.type}`,
+    start: new Date(app.startTime),
+    end: new Date(app.endTime),
+    resource: app,
+  }));
+
+  useEffect(() => {
+    console.log("AppointmentsPage Debug info:");
+    console.log("- Status:", status);
+    console.log("- Session:", session);
+    console.log("- Roles:", roles);
+    console.log("- isAdmin:", isAdmin);
+    console.log("- Profile:", profile);
+    console.log("- Appointments loaded:", appointments);
+  }, [status, session, roles, isAdmin, profile, appointments]);
+
   // Fetch patients list
   const { data: patientsResponse } = useQuery<{ content: Patient[] }>({
-    queryKey: ['patients'],
+    queryKey: ['patients', (session as any)?.accessToken],
     queryFn: async () => {
-      const response = await api.get<{ content: Patient[] }>('/v1/patients?size=100');
+      const token = (session as any)?.accessToken;
+      if (!token) return { content: [] };
+      const response = await api.get<{ content: Patient[] }>('/v1/patients?size=100', { token });
       return response;
     },
+    enabled: !!(session as any)?.accessToken,
   });
   const patients = patientsResponse?.content || [];
 
@@ -112,31 +210,35 @@ export default function AppointmentsPage() {
 
   // Fetch professionals list
   const { data: professionals = [] } = useQuery<Professional[]>({
-    queryKey: ['professionals'],
+    queryKey: ['professionals', (session as any)?.accessToken],
     queryFn: async () => {
-      const response = await api.get<Professional[]>('/v1/professionals');
+      const token = (session as any)?.accessToken;
+      if (!token) return [];
+      const response = await api.get<Professional[]>('/v1/professionals', { token });
       return response;
     },
+    enabled: !!(session as any)?.accessToken,
   });
 
   // Schedule Appointment Mutation
   const createMutation = useMutation({
     mutationFn: async (newData: any) => {
-      const response = await api.post<any>('/v1/appointments', newData);
+      const token = (session as any)?.accessToken;
+      const response = await api.post<any>('/v1/appointments', newData, { token });
       return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Cita agendada correctamente');
+      toast.success(t('successSchedule'));
       // Clear form
       setSelectedPatientId('');
-      setDate('');
-      setStartTimeStr('');
-      setEndTimeStr('');
+      setDate(getLocalDateString());
+      setStartTimeStr('09:00');
+      setEndTimeStr('10:00');
       setNotes('');
     },
     onError: (err: any) => {
-      toast.error('Error al agendar la cita. Verifica la disponibilidad.');
+      toast.error(t('errorSchedule'));
       console.error(err);
     },
   });
@@ -144,7 +246,7 @@ export default function AppointmentsPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId || !selectedProfessionalId || !date || !startTimeStr || !endTimeStr) {
-      toast.error('Completa los campos requeridos');
+      toast.error(t('requiredFields'));
       return;
     }
 
@@ -163,130 +265,67 @@ export default function AppointmentsPage() {
   };
 
   const handleCancelAppointment = async (id: string) => {
-    if (!confirm('¿Seguro que deseas cancelar esta cita?')) return;
+    if (!confirm(t('confirmCancel'))) return;
     try {
-      await api.patch(`/v1/appointments/${id}/cancel`);
+      const token = (session as any)?.accessToken;
+      await api.patch(`/v1/appointments/${id}/cancel`, {}, { token });
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
-      toast.success('Cita cancelada con éxito');
+      toast.success(t('successCancel'));
     } catch (err) {
-      toast.error('Error al cancelar la cita');
+      toast.error(t('errorCancel'));
       console.error(err);
     }
   };
 
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Agenda Médica</h1>
-        <p className="mt-1 text-sm text-gray-500">Administra las visitas y sesiones clínicas del centro</p>
+    <>
+      <div className="flex flex-col h-full space-y-6 overflow-hidden">
+        <div className="shrink-0 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">{t('pageTitle')}</h1>
+          <p className="mt-1 text-sm text-neutral-500">{t('pageSubtitle')}</p>
+        </div>
+        <button
+          onClick={() => setIsFormOpen(true)}
+          className="flex items-center space-x-2 bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl transition shadow-sm font-medium text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          <span>{t('newAppointment')}</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Columns - Timeline Scheduler */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6">
-            <h2 className="text-base font-bold text-gray-900 mb-4">Visitas Agendadas</h2>
+      <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden">
+        <AppointmentCalendar 
+          events={calendarEvents} 
+          isAdmin={isAdmin} 
+          onSelectEvent={(event) => setSelectedAppointment(event)}
+        />
+      </div>
+      </div>
 
-            {loadingAppointments ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="h-16 bg-gray-50 rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : appointments.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-sm text-gray-400">No hay citas registradas para tu agenda profesional.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {appointments
-                  .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-                  .map((app) => {
-                    const start = new Date(app.startTime);
-                    const formattedDate = format(start, "eeee, d 'de' MMMM", { locale: es });
-                    const formattedTime = `${format(start, 'HH:mm')} - ${format(new Date(app.endTime), 'HH:mm')}`;
-
-                    return (
-                      <div
-                        key={app.id}
-                        className={`flex items-center justify-between p-4 rounded-xl border transition ${
-                          app.status === 'CANCELLED'
-                            ? 'bg-gray-50/50 border-gray-100 opacity-60'
-                            : 'bg-white border-gray-100 hover:border-gray-200'
-                        }`}
-                      >
-                        <div className="flex items-start space-x-4 min-w-0">
-                          <div className="flex flex-col items-center justify-center h-12 w-12 rounded-xl bg-indigo-50 text-indigo-700 font-bold shrink-0">
-                            <span className="text-[10px] uppercase font-bold tracking-wider">
-                              {format(start, 'MMM', { locale: es })}
-                            </span>
-                            <span className="text-base leading-none">{format(start, 'dd')}</span>
-                          </div>
-
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-gray-900 truncate">
-                              {app.patientName}
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-0.5">{formattedDate} ({formattedTime})</p>
-                            {app.notes && (
-                              <p className="text-xs text-gray-400 italic mt-1 truncate max-w-md">“{app.notes}”</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-3 ml-4 shrink-0">
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase ${
-                              app.status === 'SCHEDULED'
-                                ? 'bg-blue-50 text-blue-700'
-                                : app.status === 'COMPLETED'
-                                ? 'bg-green-50 text-green-700'
-                                : 'bg-red-50 text-red-700'
-                            }`}
-                          >
-                            {app.status === 'SCHEDULED'
-                              ? 'Pendiente'
-                              : app.status === 'COMPLETED'
-                              ? 'Completada'
-                              : 'Cancelada'}
-                          </span>
-
-                          {app.status === 'SCHEDULED' && (
-                            <button
-                              onClick={() => handleCancelAppointment(app.id)}
-                              className="text-xs text-red-500 hover:text-red-700 font-medium transition"
-                              title="Cancelar cita"
-                            >
-                              Cancelar
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
+      {/* SlideOver for New Appointment Form */}
+      <SlideOver
+        open={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={t('newSession')}
+        description={t('pageSubtitle')}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('patient')} *</label>
+            <SearchableSelect
+              options={patientOptions}
+              value={selectedPatientId}
+              onChange={setSelectedPatientId}
+              placeholder={t('selectPatient')}
+              emptyMessage={t('noPatientsFound')}
+            />
           </div>
-        </div>
 
-        {/* Right Column - New Appointment Form */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 h-fit">
-          <h2 className="text-base font-bold text-gray-900 mb-4">Nueva Sesión / Cita</h2>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {isAdmin && (
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Paciente *</label>
-              <SearchableSelect
-                options={patientOptions}
-                value={selectedPatientId}
-                onChange={setSelectedPatientId}
-                placeholder="Elige un paciente de la lista..."
-                emptyMessage="No se encontraron pacientes"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Profesional *</label>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('professional')} *</label>
               <SearchableSelect
                 options={professionals.map(prof => ({
                   value: prof.id,
@@ -296,80 +335,152 @@ export default function AppointmentsPage() {
                 }))}
                 value={selectedProfessionalId}
                 onChange={setSelectedProfessionalId}
-                placeholder="Elige profesional..."
+                placeholder={t('selectProfessional')}
                 searchable={true}
               />
             </div>
+          )}
 
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('date')} *</label>
+            <input
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-neutral-900 placeholder-neutral-500 font-medium"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Fecha *</label>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('startTime')} *</label>
               <input
-                type="date"
+                type="time"
                 required
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-black placeholder-neutral-500 font-medium"
+                value={startTimeStr}
+                onChange={(e) => setStartTimeStr(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-neutral-900 placeholder-neutral-500 font-medium"
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Hora Inicio *</label>
-                <input
-                  type="time"
-                  required
-                  value={startTimeStr}
-                  onChange={(e) => setStartTimeStr(e.target.value)}
-                  className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-black placeholder-neutral-500 font-medium"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Hora Fin *</label>
-                <input
-                  type="time"
-                  required
-                  value={endTimeStr}
-                  onChange={(e) => setEndTimeStr(e.target.value)}
-                  className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-black placeholder-neutral-500 font-medium"
-                />
-              </div>
-            </div>
-
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Tipo de Cita *</label>
-              <SearchableSelect
-                options={[
-                  { value: 'INDIVIDUAL', label: 'Individual' },
-                  { value: 'GROUP', label: 'Grupal / Familiar' },
-                  { value: 'EMERGENCY', label: 'Crisis / Urgencia' },
-                ]}
-                value={type}
-                onChange={setType}
-                searchable={false}
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('endTime')} *</label>
+              <input
+                type="time"
+                required
+                value={endTimeStr}
+                onChange={(e) => setEndTimeStr(e.target.value)}
+                className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-neutral-900 placeholder-neutral-500 font-medium"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Notas / Motivo</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-                placeholder="Ej. Sesión regular de control de impulsos..."
-                className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition duration-200 text-neutral-900 placeholder:text-neutral-400"
-              />
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('appointmentType')} *</label>
+            <SearchableSelect
+              options={[
+                { value: 'INDIVIDUAL', label: t('type.individual') },
+                { value: 'GROUP', label: t('type.group') },
+                { value: 'EMERGENCY', label: t('type.emergency') },
+              ]}
+              value={type}
+              onChange={setType}
+              searchable={false}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">{t('notes')}</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              className="w-full text-sm px-3 py-2 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition duration-200 text-neutral-900 placeholder:text-neutral-400"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={createMutation.isPending}
+            className="w-full py-2.5 mt-4 text-sm font-semibold text-white bg-primary-600 rounded-xl hover:bg-primary-500 transition duration-200 disabled:opacity-50 cursor-pointer"
+          >
+            {createMutation.isPending ? t('scheduling') : t('scheduleButton')}
+          </button>
+        </form>
+      </SlideOver>
+
+      {/* SlideOver for Appointment Details */}
+      <SlideOver
+        open={!!selectedAppointment}
+        onClose={() => setSelectedAppointment(null)}
+        title="Detalles de la Visita"
+      >
+        {selectedAppointment && (
+          <div className="space-y-6">
+            <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-100 space-y-3">
+              <div>
+                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{t('patient')}</span>
+                <p className="text-sm font-bold text-neutral-900">{selectedAppointment.resource.patientName}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{t('date')}</span>
+                  <p className="text-sm font-medium text-neutral-900">
+                    {format(selectedAppointment.start, "d 'de' MMMM, yyyy", { locale: es })}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{t('time')}</span>
+                  <p className="text-sm font-medium text-neutral-900">
+                    {format(selectedAppointment.start, "HH:mm")} - {format(selectedAppointment.end, "HH:mm")}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{t('appointmentType')}</span>
+                <p className="text-sm font-medium text-neutral-900">{selectedAppointment.resource.type}</p>
+              </div>
+
+              {isAdmin && (
+                <div>
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{t('professional')}</span>
+                  <p className="text-sm font-medium text-neutral-900">{selectedAppointment.resource.professionalName}</p>
+                </div>
+              )}
+              
+              <div>
+                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">Estado</span>
+                <p className="text-sm font-medium text-neutral-900">{selectedAppointment.resource.status}</p>
+              </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-xl hover:bg-primary-500 transition duration-200 disabled:opacity-50"
-            >
-              {createMutation.isPending ? 'Agendando...' : 'Agendar Visita'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+            {selectedAppointment.resource.notes && (
+              <div>
+                <span className="block text-xs font-semibold text-neutral-700 mb-1">{t('notes')}</span>
+                <div className="bg-white border border-neutral-200 rounded-xl p-4 text-sm text-neutral-700">
+                  {selectedAppointment.resource.notes}
+                </div>
+              </div>
+            )}
+
+            {selectedAppointment.resource.status === 'SCHEDULED' && selectedAppointment.start > new Date() && (
+              <div className="pt-4 border-t border-neutral-100">
+                <button
+                  onClick={() => {
+                    handleCancelAppointment(selectedAppointment.resource.id);
+                    setSelectedAppointment(null);
+                  }}
+                  className="w-full py-2.5 text-sm font-semibold text-danger-600 bg-danger-50 rounded-xl hover:bg-danger-100 transition duration-200 cursor-pointer"
+                >
+                  {t('cancelAppointment')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </SlideOver>
+    </>
   );
 }

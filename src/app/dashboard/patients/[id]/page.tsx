@@ -4,14 +4,18 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
-import { Patient, Appointment } from "@/types";
+import { Patient, Appointment, Treatment, DailyMood, SurveyResponse, PageResponse } from "@/types";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { 
   ChevronLeft, Edit2, Check, X, Shield, Activity, 
   User, Heart, Cigarette, Beer, HelpCircle, Dumbbell, AlertTriangle,
-  Flame, ShieldAlert, PhoneCall, UserPlus
+  Flame, ShieldAlert, PhoneCall, UserPlus, Calendar, Pill, Brain, ClipboardList,
+  Smile, Frown, Meh, TrendingUp, CheckCircle2, Clock
 } from "lucide-react";
 import Link from "next/link";
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { EvolutionChart } from '../components/EvolutionChart';
 
 const riskColors = {
   LOW: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -27,7 +31,7 @@ export default function PatientDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"clinical" | "habits" | "general">("clinical");
+  const [activeTab, setActiveTab] = useState<"clinical" | "habits" | "general" | "historial" | "evolucion">("clinical");
 
   // Local form state for updates
   const [formData, setFormData] = useState<Partial<Patient>>({});
@@ -78,6 +82,35 @@ export default function PatientDetailPage() {
     },
   });
 
+  // ─── Clinical History Queries ──────────────────────────────
+  const { data: appointmentsPage } = useQuery<PageResponse<Appointment>>({
+    queryKey: ['patient-appointments', id],
+    queryFn: () => api.get<PageResponse<Appointment>>(`/v1/appointments/patient/${id}?size=20&sort=startTime,desc`),
+    enabled: !!id && activeTab === 'historial',
+  });
+
+  const { data: activeTreatments } = useQuery<Treatment[]>({
+    queryKey: ['patient-treatments-active', id],
+    queryFn: () => api.get<Treatment[]>(`/v1/medications/treatments/patient/${id}/active`),
+    enabled: !!id && activeTab === 'historial',
+  });
+
+  const { data: patientMoodsData } = useQuery<DailyMood[]>({
+    queryKey: ['patient-moods', id],
+    queryFn: () => api.get<DailyMood[]>(`/v1/moods/patient/${id}?size=10`),
+    enabled: !!id && activeTab === 'historial',
+  });
+
+  const { data: surveyResponsesPage } = useQuery<PageResponse<SurveyResponse>>({
+    queryKey: ['patient-survey-responses', id],
+    queryFn: () => api.get<PageResponse<SurveyResponse>>(`/v1/surveys/responses/patient/${id}?size=10`),
+    enabled: !!id && activeTab === 'historial',
+  });
+
+  const patientAppointments = appointmentsPage?.content ?? [];
+  const patientMoods = patientMoodsData ?? [];
+  const patientSurveyResponses = surveyResponsesPage?.content ?? [];
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
@@ -114,9 +147,9 @@ export default function PatientDetailPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full space-y-6 overflow-hidden">
       {/* Navigation */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between shrink-0">
         <Link 
           href="/dashboard/patients" 
           className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
@@ -155,7 +188,7 @@ export default function PatientDetailPage() {
       </div>
 
       {/* Hero Card */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shrink-0">
         <div className="flex items-center gap-4">
           <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-2xl border border-blue-200">
             {patient.name[0]}{patient.surname[0]}
@@ -193,7 +226,7 @@ export default function PatientDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200 shrink-0">
         <button
           onClick={() => setActiveTab("clinical")}
           className={`px-6 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer ${
@@ -233,10 +266,36 @@ export default function PatientDetailPage() {
             Información Personal y Demográfica
           </span>
         </button>
+        <button
+          onClick={() => setActiveTab("historial")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+            activeTab === "historial" 
+              ? "border-blue-600 text-blue-600 font-semibold" 
+              : "border-transparent text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <Activity size={16} />
+            Historial Clínico
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("evolucion")}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+            activeTab === "evolucion" 
+              ? "border-blue-600 text-blue-600 font-semibold" 
+              : "border-transparent text-gray-500 hover:text-gray-900"
+          }`}
+        >
+          <span className="flex items-center gap-2">
+            <TrendingUp size={16} />
+            Evolución
+          </span>
+        </button>
       </div>
 
       {/* Form Content */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6">
+      <div className="flex-1 min-h-0 bg-white rounded-2xl border border-gray-200 p-6 overflow-y-auto">
         {activeTab === "clinical" && (
           <div className="space-y-6">
             <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 flex items-center gap-2">
@@ -854,6 +913,221 @@ export default function PatientDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Historial Clínico Tab ── */}
+        {activeTab === "historial" && (
+          <div className="space-y-8">
+
+            {/* Citas */}
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 flex items-center gap-2 mb-4">
+                <Calendar size={18} className="text-blue-600" />
+                Citas y Visitas
+              </h3>
+              {patientAppointments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <Clock size={32} className="mb-2 text-gray-300" />
+                  <p className="text-sm">Sin citas registradas</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {patientAppointments.map(appt => {
+                    const statusColors: Record<string, string> = {
+                      SCHEDULED: 'bg-blue-50 text-blue-700',
+                      CONFIRMED: 'bg-indigo-50 text-indigo-700',
+                      IN_PROGRESS: 'bg-amber-50 text-amber-700',
+                      COMPLETED: 'bg-green-50 text-green-700',
+                      CANCELLED: 'bg-gray-50 text-gray-500',
+                      NO_SHOW: 'bg-red-50 text-red-700',
+                    };
+                    const statusLabels: Record<string, string> = {
+                      SCHEDULED: 'Programada', CONFIRMED: 'Confirmada', IN_PROGRESS: 'En Curso',
+                      COMPLETED: 'Completada', CANCELLED: 'Cancelada', NO_SHOW: 'No Presentado',
+                    };
+                    const typeLabels: Record<string, string> = {
+                      INDIVIDUAL: 'Individual', GROUP: 'Grupal', FAMILY: 'Familiar',
+                      EMERGENCY: 'Urgencia', FOLLOW_UP: 'Seguimiento', INITIAL: 'Primera visita', TELEMATIC: 'Telemática',
+                    };
+                    return (
+                      <div key={appt.id} className={`flex items-center gap-4 p-3 rounded-xl border ${
+                        appt.status === 'CANCELLED' ? 'opacity-50 bg-gray-50 border-gray-100' : 'bg-white border-gray-100'
+                      }`}>
+                        <div className="w-12 h-12 rounded-xl bg-blue-50 flex flex-col items-center justify-center text-blue-700 font-bold shrink-0">
+                          <span className="text-[10px] uppercase tracking-wider">{format(new Date(appt.startTime), 'MMM', { locale: es })}</span>
+                          <span className="text-base leading-none">{format(new Date(appt.startTime), 'dd')}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{typeLabels[appt.type] ?? appt.type}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {format(new Date(appt.startTime), "HH:mm")} — {appt.professionalName}
+                          </p>
+                          {appt.notes && <p className="text-xs text-gray-400 italic truncate mt-0.5">"{appt.notes}"</p>}
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${statusColors[appt.status] ?? 'bg-gray-50 text-gray-500'}`}>
+                          {statusLabels[appt.status] ?? appt.status}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Medicación Activa */}
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 flex items-center gap-2 mb-4">
+                <Pill size={18} className="text-blue-600" />
+                Medicación Activa
+              </h3>
+              {!activeTreatments || activeTreatments.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <Pill size={32} className="mb-2 text-gray-300" />
+                  <p className="text-sm">Sin tratamientos activos</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activeTreatments.map(t => (
+                    <div key={t.id} className="flex items-center gap-4 p-3 rounded-xl bg-white border border-gray-100">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                        <Pill size={20} className="text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{t.medicationName}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {t.medicationStrength && `${t.medicationStrength} · `}{t.scheduleName}
+                        </p>
+                        {t.prescribedByName && (
+                          <p className="text-xs text-gray-400 mt-0.5">Prescrito por {t.prescribedByName}</p>
+                        )}
+                      </div>
+                      <div className="text-right text-xs text-gray-500 shrink-0">
+                        <p className="font-semibold">Desde {format(new Date(t.startDate), 'd MMM yyyy', { locale: es })}</p>
+                        {t.endDate && <p>Hasta {format(new Date(t.endDate), 'd MMM yyyy', { locale: es })}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Registros de Ánimo */}
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 flex items-center gap-2 mb-4">
+                <Brain size={18} className="text-blue-600" />
+                Registros de Estado de Ánimo (Últimos 10)
+              </h3>
+              {patientMoods.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <Brain size={32} className="mb-2 text-gray-300" />
+                  <p className="text-sm">Sin registros de ánimo</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {patientMoods.map(mood => {
+                    const moodColor = mood.moodScore >= 7 ? 'text-green-600' : mood.moodScore >= 4 ? 'text-amber-600' : 'text-red-600';
+                    
+                    // Calcular Índice de Bienestar (0-100)
+                    let totalScore = mood.moodScore * 10;
+                    let count = 1;
+                    if (mood.anxietyScore !== null) {
+                      totalScore += (11 - mood.anxietyScore) * 10; // Menor ansiedad es mejor
+                      count++;
+                    }
+                    if (mood.energyScore !== null) {
+                      totalScore += mood.energyScore * 10;
+                      count++;
+                    }
+                    if (mood.sleepHours !== null) {
+                      totalScore += Math.min((mood.sleepHours / 8) * 100, 100); // 8h o más es 100%
+                      count++;
+                    }
+                    const wellnessScore = Math.round(totalScore / count);
+                    const wellnessColor = wellnessScore >= 70 ? 'text-green-600' : wellnessScore >= 40 ? 'text-amber-600' : 'text-red-600';
+                    const wellnessBg = wellnessScore >= 70 ? 'bg-green-50' : wellnessScore >= 40 ? 'bg-amber-50' : 'bg-red-50';
+
+                    return (
+                      <div key={mood.id} className="flex items-center gap-4 p-3 rounded-xl bg-white border border-gray-100">
+                        <div className={`w-16 h-14 rounded-xl ${wellnessBg} flex flex-col items-center justify-center shrink-0`}>
+                          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Índice</p>
+                          <p className={`text-sm font-bold mt-0.5 ${wellnessColor}`}>{wellnessScore}%</p>
+                        </div>
+                        <div className="flex-1 grid grid-cols-4 gap-3">
+                          <div className="text-center">
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Ánimo</p>
+                            <p className={`text-sm font-bold ${moodColor}`}>{mood.moodScore}/10</p>
+                          </div>
+                          {mood.anxietyScore !== null && (
+                            <div className="text-center">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Ansiedad</p>
+                              <p className="text-sm font-bold text-orange-600">{mood.anxietyScore}/10</p>
+                            </div>
+                          )}
+                          {mood.sleepHours !== null && (
+                            <div className="text-center">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Sueño</p>
+                              <p className="text-sm font-bold text-indigo-600">{mood.sleepHours}h</p>
+                            </div>
+                          )}
+                          {mood.energyScore !== null && (
+                            <div className="text-center">
+                              <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Energía</p>
+                              <p className="text-sm font-bold text-yellow-600">{mood.energyScore}/10</p>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 shrink-0">
+                          {format(new Date(mood.createdAt), "d MMM HH:mm", { locale: es })}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Cuestionarios */}
+            <div>
+              <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-100 flex items-center gap-2 mb-4">
+                <ClipboardList size={18} className="text-blue-600" />
+                Cuestionarios Completados
+              </h3>
+              {patientSurveyResponses.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                  <ClipboardList size={32} className="mb-2 text-gray-300" />
+                  <p className="text-sm">Sin cuestionarios completados</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {patientSurveyResponses.map(resp => (
+                    <div key={resp.id} className="flex items-center gap-4 p-3 rounded-xl bg-white border border-gray-100">
+                      <CheckCircle2 size={20} className="text-green-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{resp.surveyTemplate?.name ?? 'Cuestionario'}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {format(new Date(resp.completedAt), "d 'de' MMMM yyyy", { locale: es })}
+                        </p>
+                      </div>
+                      {resp.score !== null && (
+                        <div className="text-center shrink-0">
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Puntuación</p>
+                          <p className="text-xl font-bold text-blue-700">{resp.score}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ── Evolución Tab ── */}
+        {activeTab === "evolucion" && (
+          <div className="h-full flex flex-col justify-center pb-8">
+            <EvolutionChart patientId={id} />
           </div>
         )}
       </div>

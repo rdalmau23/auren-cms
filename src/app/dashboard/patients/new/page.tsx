@@ -3,10 +3,12 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Save, AlertCircle, CheckCircle, Info } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { AlertCircle, CheckCircle, Info } from "lucide-react";
 import Link from "next/link";
 import { api } from "@/lib/api-client";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Center, Patient, PatientCreateRequest } from "@/types";
 
 export default function NewPatientPage() {
@@ -24,6 +26,8 @@ export default function NewPatientPage() {
     
     // Clinical & Admin info
     centerId: "",
+    primaryProfessionalId: "",
+    extraProfessionalIds: [] as string[],
     birthDate: "",
     gender: "MALE",
     diagnosis: "",
@@ -60,6 +64,11 @@ export default function NewPatientPage() {
 
   const [formError, setFormError] = useState<string | null>(null);
 
+  const { data: session } = useSession();
+  const roles: string[] = (session as any)?.roles || [];
+  const isSuperAdmin = roles.includes('SUPER_ADMIN');
+  const isAdmin = roles.includes('SUPER_ADMIN') || roles.includes('CENTER_ADMIN');
+
   // Fetch Centers
   const { data: centers = [] } = useQuery<Center[]>({
     queryKey: ["centers"],
@@ -70,6 +79,19 @@ export default function NewPatientPage() {
       }
       return response;
     },
+    enabled: isSuperAdmin,
+  });
+
+  // Fetch Professionals
+  const { data: professionals = [] } = useQuery<any[]>({
+    queryKey: ['professionals', (session as any)?.accessToken],
+    queryFn: async () => {
+      const token = (session as any)?.accessToken;
+      if (!token) return [];
+      const response = await api.get<any[]>('/v1/professionals', { token });
+      return response;
+    },
+    enabled: isAdmin && !!(session as any)?.accessToken,
   });
 
   // Create Patient Mutation
@@ -77,10 +99,10 @@ export default function NewPatientPage() {
     mutationFn: async (payload: PatientCreateRequest) => {
       return await api.post<Patient>("/v1/patients", payload);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["patients"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      router.push("/dashboard/patients");
+      router.push(`/dashboard/patients/${data.id}`);
     },
     onError: (err: any) => {
       setFormError(err.message || "Ocurrió un error al registrar al paciente. Revisa los datos e inténtalo de nuevo.");
@@ -102,9 +124,14 @@ export default function NewPatientPage() {
     setFormError(null);
 
     // Basic validation
-    if (!formData.name || !formData.surname || !formData.email || !formData.centerId) {
-      setFormError("Los campos Nombre, Apellidos, Correo Electrónico y Centro Médico son obligatorios.");
+    if (!formData.name || !formData.surname || !formData.email) {
+      setFormError("Los campos Nombre, Apellidos y Correo Electrónico son obligatorios.");
       setActiveTab("personal");
+      return;
+    }
+    if (isSuperAdmin && !formData.centerId) {
+      setFormError("El Centro Médico es obligatorio.");
+      setActiveTab("clinical");
       return;
     }
 
@@ -113,7 +140,9 @@ export default function NewPatientPage() {
       surname: formData.surname,
       email: formData.email,
       phone: formData.phone || undefined,
-      centerId: formData.centerId,
+      centerId: isSuperAdmin ? formData.centerId : undefined,
+      primaryProfessionalId: isAdmin ? formData.primaryProfessionalId || undefined : undefined,
+      extraProfessionalIds: isAdmin ? formData.extraProfessionalIds : undefined,
       birthDate: formData.birthDate || undefined,
       gender: formData.gender,
       diagnosis: formData.diagnosis || undefined,
@@ -144,29 +173,13 @@ export default function NewPatientPage() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl mx-auto pb-12">
+    <form onSubmit={handleSubmit} className="flex flex-col w-full h-full pb-6">
       {/* Top navigation header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/dashboard/patients"
-            className="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <ChevronLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Registrar nuevo paciente</h1>
-            <p className="text-sm text-gray-500">Crea un nuevo expediente clínico y cuenta de usuario</p>
-          </div>
+      <div className="flex items-center justify-between flex-shrink-0 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Registrar nuevo paciente</h1>
+          <p className="text-sm text-gray-500">Crea un nuevo expediente clínico y cuenta de usuario</p>
         </div>
-        <button
-          type="submit"
-          disabled={createMutation.isPending}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors shadow-sm cursor-pointer disabled:opacity-50"
-        >
-          <Save size={18} />
-          {createMutation.isPending ? "Registrando..." : "Guardar Paciente"}
-        </button>
       </div>
 
       {formError && (
@@ -180,7 +193,7 @@ export default function NewPatientPage() {
       )}
 
       {/* Tabs navigation */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 flex-shrink-0 mb-4">
         <nav className="flex gap-6" aria-label="Tabs">
           {[
             { id: "personal", label: "Datos Personales" },
@@ -204,9 +217,11 @@ export default function NewPatientPage() {
         </nav>
       </div>
 
-      {/* Tab 1: Datos Personales */}
-      {activeTab === "personal" && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+      {/* Scrollable Card */}
+      <div className="flex-1 min-h-0 bg-white border border-gray-200 rounded-2xl overflow-y-auto shadow-sm">
+        {/* Tab 1: Datos Personales */}
+        {activeTab === "personal" && (
+          <div className="p-6 space-y-6">
           <h2 className="text-lg font-bold text-gray-900 border-b pb-3">Información básica y contacto</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
@@ -357,24 +372,75 @@ export default function NewPatientPage() {
 
       {/* Tab 2: Información Clínica */}
       {activeTab === "clinical" && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+        <div className="p-6 space-y-6">
           <h2 className="text-lg font-bold text-gray-900 border-b pb-3">Información de Ingreso y Diagnóstico</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                Centro Médico Asignado <span className="text-red-500">*</span>
-              </label>
-              <SearchableSelect
-                options={centers.map((center) => ({
-                  value: center.id,
-                  label: center.name,
-                  sublabel: center.type,
-                }))}
-                value={formData.centerId}
-                onChange={(val) => setFormData((prev) => ({ ...prev, centerId: val }))}
-                searchable={true}
-              />
-            </div>
+            {isSuperAdmin && (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Centro Médico Asignado <span className="text-red-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={centers.map((center) => ({
+                    value: center.id,
+                    label: center.name,
+                    sublabel: center.type,
+                  }))}
+                  value={formData.centerId}
+                  onChange={(val) => setFormData((prev) => ({ ...prev, centerId: val }))}
+                  searchable={true}
+                />
+              </div>
+            )}
+            
+            {isAdmin ? (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Profesional Principal
+                  </label>
+                  <SearchableSelect
+                    options={professionals.map(prof => ({
+                      value: prof.id,
+                      label: `${prof.user?.name} ${prof.user?.surname}`,
+                      sublabel: prof.speciality,
+                      avatarInitials: `${prof.user?.name?.[0] || ''}${prof.user?.surname?.[0] || ''}`.toUpperCase()
+                    }))}
+                    value={formData.primaryProfessionalId}
+                    onChange={(val) => setFormData((prev) => ({ ...prev, primaryProfessionalId: val }))}
+                    placeholder="Selecciona un profesional"
+                    searchable={true}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Profesionales Adicionales
+                  </label>
+                  <MultiSelect
+                    options={professionals.filter(p => p.id !== formData.primaryProfessionalId).map(prof => ({
+                      value: prof.id,
+                      label: `${prof.user?.name} ${prof.user?.surname}`,
+                      sublabel: prof.speciality,
+                      avatarInitials: prof.user?.name?.[0]?.toUpperCase()
+                    }))}
+                    values={formData.extraProfessionalIds}
+                    onChange={(values) => setFormData(prev => ({ ...prev, extraProfessionalIds: values }))}
+                    placeholder="Seleccionar adicionales..."
+                    emptyMessage="No hay más profesionales"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="md:col-span-2">
+                <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl flex items-start gap-3">
+                  <Info size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                    Serás asignado automáticamente como el Profesional Principal de este paciente al guardar.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Fecha de Ingreso
@@ -496,7 +562,7 @@ export default function NewPatientPage() {
 
       {/* Tab 3: Hábitos y Entorno */}
       {activeTab === "habits" && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+        <div className="p-6 space-y-6">
           <h2 className="text-lg font-bold text-gray-900 border-b pb-3">Hábitos y Estilo de Vida</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
@@ -609,7 +675,7 @@ export default function NewPatientPage() {
 
       {/* Tab 4: Contacto de Emergencia */}
       {activeTab === "emergency" && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+        <div className="p-6 space-y-6">
           <h2 className="text-lg font-bold text-gray-900 border-b pb-3">Contacto Directo de Emergencia</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="md:col-span-1">
@@ -662,8 +728,10 @@ export default function NewPatientPage() {
         </div>
       )}
 
+      </div>
+
       {/* Form Actions Footer */}
-      <div className="flex justify-end gap-3 pt-4">
+      <div className="flex justify-end gap-3 pt-4 flex-shrink-0">
         <Link
           href="/dashboard/patients"
           className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-semibold text-sm rounded-xl hover:bg-gray-50 transition-colors shadow-sm"

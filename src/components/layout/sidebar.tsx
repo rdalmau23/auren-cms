@@ -16,26 +16,34 @@ import {
   Activity,
   Menu,
   X,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { signOut, useSession } from "next-auth/react";
 
 const navigation = [
-  { name: "Panel", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Pacientes", href: "/dashboard/patients", icon: Users },
-  { name: "Profesionales", href: "/dashboard/professionals", icon: UserCog },
-  { name: "Agenda", href: "/dashboard/appointments", icon: Calendar },
-  { name: "Medicación", href: "/dashboard/medications", icon: Pill },
-  { name: "Cuestionarios", href: "/dashboard/surveys", icon: ClipboardList },
-  { name: "Chat", href: "/dashboard/chat", icon: MessageCircle },
+  { translationKey: "dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { translationKey: "alerts", href: "/dashboard/alerts", icon: Activity },
+  { translationKey: "patients", href: "/dashboard/patients", icon: Users },
+  { translationKey: "professionals", href: "/dashboard/professionals", icon: UserCog },
+  { translationKey: "centers", href: "/dashboard/centers", icon: Building2 },
+  { translationKey: "appointments", href: "/dashboard/appointments", icon: Calendar },
+  { translationKey: "medications", href: "/dashboard/medications", icon: Pill },
+  { translationKey: "surveys", href: "/dashboard/surveys", icon: ClipboardList },
+  { translationKey: "chat", href: "/dashboard/chat", icon: MessageCircle },
 ];
 
 const bottomNav = [
-  { name: "Configuración", href: "/dashboard/settings", icon: Settings },
+  { translationKey: "settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
   const [collapsed, setCollapsed] = useState(false);
+  const tNav = useTranslations("nav");
+  const tAuth = useTranslations("auth");
 
   return (
     <aside
@@ -71,9 +79,10 @@ export function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          const label = tNav(item.translationKey);
           return (
             <Link
-              key={item.name}
+              key={item.translationKey}
               href={item.href}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
@@ -81,10 +90,10 @@ export function Sidebar() {
                   ? "bg-blue-50 text-blue-700 shadow-sm"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
-              title={collapsed ? item.name : undefined}
+              title={collapsed ? label : undefined}
             >
               <item.icon size={20} className={cn(isActive && "text-blue-600")} />
-              {!collapsed && <span>{item.name}</span>}
+              {!collapsed && <span>{label}</span>}
             </Link>
           );
         })}
@@ -92,21 +101,41 @@ export function Sidebar() {
 
       {/* Bottom */}
       <div className="px-3 py-4 border-t border-gray-200 space-y-1">
-        {bottomNav.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
-            title={collapsed ? item.name : undefined}
-          >
-            <item.icon size={20} />
-            {!collapsed && <span>{item.name}</span>}
-          </Link>
-        ))}
+        {bottomNav.map((item) => {
+          const label = tNav(item.translationKey);
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+          return (
+            <Link
+              key={item.translationKey}
+              href={item.href}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+                isActive
+                  ? "bg-blue-50 text-blue-700 shadow-sm"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              )}
+              title={collapsed ? label : undefined}
+            >
+              <item.icon size={20} className={cn(isActive && "text-blue-600")} />
+              {!collapsed && <span>{label}</span>}
+            </Link>
+          );
+        })}
 
-        <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all w-full">
+        <button
+          onClick={async () => {
+            const idToken = (session as any)?.idToken;
+            await signOut({ redirect: false });
+            let url = `http://localhost:8180/realms/auren/protocol/openid-connect/logout?client_id=auren-cms&post_logout_redirect_uri=${encodeURIComponent(window.location.origin)}`;
+            if (idToken) {
+              url += `&id_token_hint=${idToken}`;
+            }
+            window.location.href = url;
+          }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all w-full"
+        >
           <LogOut size={20} />
-          {!collapsed && <span>Cerrar sesión</span>}
+          {!collapsed && <span>{tAuth("logout")}</span>}
         </button>
       </div>
     </aside>
