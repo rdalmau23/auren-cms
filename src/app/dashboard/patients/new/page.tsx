@@ -9,7 +9,8 @@ import Link from "next/link";
 import { api } from "@/lib/api-client";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { MultiSelect } from '@/components/ui/MultiSelect';
-import { Center, Patient, PatientCreateRequest } from "@/types";
+import { Center, Patient, PatientCreateRequest, Pathology } from "@/types";
+import { useTranslations } from "next-intl";
 
 export default function NewPatientPage() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export default function NewPatientPage() {
     diagnosis: "",
     riskLevel: "LOW",
     admissionDate: new Date().toISOString().split("T")[0],
+    pathologyIds: [] as string[],
     
     // Habits
     isSmoker: false,
@@ -69,6 +71,8 @@ export default function NewPatientPage() {
   const isSuperAdmin = roles.includes('SUPER_ADMIN');
   const isAdmin = roles.includes('SUPER_ADMIN') || roles.includes('CENTER_ADMIN');
 
+  const tPathologies = useTranslations("pathologies");
+
   // Fetch Centers
   const { data: centers = [] } = useQuery<Center[]>({
     queryKey: ["centers"],
@@ -92,6 +96,15 @@ export default function NewPatientPage() {
       return response;
     },
     enabled: isAdmin && !!(session as any)?.accessToken,
+  });
+
+  // Fetch Pathologies
+  const { data: pathologies = [] } = useQuery<Pathology[]>({
+    queryKey: ["pathologies"],
+    queryFn: async () => {
+      const response = await api.get<Pathology[]>("/v1/pathologies");
+      return response;
+    },
   });
 
   // Create Patient Mutation
@@ -167,6 +180,7 @@ export default function NewPatientPage() {
       occupation: formData.occupation || undefined,
       educationLevel: formData.educationLevel || undefined,
       housingSituation: formData.housingSituation || undefined,
+      pathologyIds: formData.pathologyIds,
     };
 
     createMutation.mutate(payload);
@@ -506,6 +520,23 @@ export default function NewPatientPage() {
                 rows={3}
                 className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors resize-none"
                 placeholder="Escribe el diagnóstico médico y notas iniciales del paciente..."
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                {tPathologies("title")}
+              </label>
+              <MultiSelect
+                options={pathologies.map((pathology) => ({
+                  value: pathology.id,
+                  label: pathology.name,
+                  sublabel: pathology.description || undefined,
+                  avatarInitials: pathology.code,
+                }))}
+                values={formData.pathologyIds}
+                onChange={(values) => setFormData((prev) => ({ ...prev, pathologyIds: values }))}
+                placeholder={tPathologies("select")}
+                emptyMessage="No hay patologías disponibles"
               />
             </div>
           </div>

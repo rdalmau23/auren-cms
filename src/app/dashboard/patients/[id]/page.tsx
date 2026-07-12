@@ -10,12 +10,16 @@ import {
   ChevronLeft, Edit2, Check, X, Shield, Activity, 
   User, Heart, Cigarette, Beer, HelpCircle, Dumbbell, AlertTriangle,
   Flame, ShieldAlert, PhoneCall, UserPlus, Calendar, Pill, Brain, ClipboardList,
-  Smile, Frown, Meh, TrendingUp, CheckCircle2, Clock
+  Smile, Frown, Meh, TrendingUp, CheckCircle2, Clock, Blocks
 } from "lucide-react";
 import Link from "next/link";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { EvolutionChart } from '../components/EvolutionChart';
+import { TCAModuleTab } from '../components/TCAModuleTab';
+import { MultiSelect } from '@/components/ui/MultiSelect';
+import { Pathology } from "@/types";
+import { useTranslations } from "next-intl";
 
 const riskColors = {
   LOW: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -31,24 +35,38 @@ export default function PatientDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"clinical" | "habits" | "general" | "historial" | "evolucion">("clinical");
+  const [activeTab, setActiveTab] = useState<"clinical" | "habits" | "general" | "historial" | "evolucion" | "modulos" | "tca">("clinical");
 
   // Local form state for updates
-  const [formData, setFormData] = useState<Partial<Patient>>({});
+  const [formData, setFormData] = useState<Partial<Patient & { pathologyIds?: string[] }>>({});
+
+  const tPathologies = useTranslations("pathologies");
 
   // Query patient data
   const { data: patient, isLoading, error } = useQuery<Patient>({
     queryKey: ["patient", id],
     queryFn: async () => {
       const response = await api.get<Patient>(`/v1/patients/${id}`);
-      setFormData(response);
+      setFormData({
+        ...response,
+        pathologyIds: response.pathologies?.map(p => p.id) || []
+      });
+      return response;
+    },
+  });
+
+  // Query pathologies
+  const { data: pathologies = [] } = useQuery<Pathology[]>({
+    queryKey: ["pathologies"],
+    queryFn: async () => {
+      const response = await api.get<Pathology[]>("/v1/pathologies");
       return response;
     },
   });
 
   // Mutation to update patient data
   const updateMutation = useMutation({
-    mutationFn: async (updatedData: Partial<Patient>) => {
+    mutationFn: async (updatedData: any) => {
       return await api.put<Patient>(`/v1/patients/${id}`, {
         birthDate: updatedData.birthDate,
         gender: updatedData.gender,
@@ -74,6 +92,7 @@ export default function PatientDetailPage() {
         occupation: updatedData.occupation,
         educationLevel: updatedData.educationLevel,
         housingSituation: updatedData.housingSituation,
+        pathologyIds: updatedData.pathologyIds,
       });
     },
     onSuccess: (data) => {
@@ -106,6 +125,8 @@ export default function PatientDetailPage() {
     queryFn: () => api.get<PageResponse<SurveyResponse>>(`/v1/surveys/responses/patient/${id}?size=10`),
     enabled: !!id && activeTab === 'historial',
   });
+
+
 
   const patientAppointments = appointmentsPage?.content ?? [];
   const patientMoods = patientMoodsData ?? [];
@@ -292,6 +313,22 @@ export default function PatientDetailPage() {
             Evolución
           </span>
         </button>
+
+        {patient.pathologies?.some(p => p.code === 'TCA') && (
+          <button
+            onClick={() => setActiveTab("tca")}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-all cursor-pointer ${
+              activeTab === "tca" 
+                ? "border-orange-500 text-orange-600 font-semibold" 
+                : "border-transparent text-gray-500 hover:text-gray-900"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <Activity size={16} />
+              {tPathologies("title")} TCA
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Form Content */}
@@ -319,6 +356,40 @@ export default function PatientDetailPage() {
                   <p className="text-sm text-gray-800 bg-gray-50 rounded-xl p-3 border border-gray-100 min-h-[48px]">
                     {patient.diagnosis || "No especificado"}
                   </p>
+                )}
+              </div>
+
+              {/* Pathologies */}
+              <div className="flex flex-col gap-1.5 md:col-span-2">
+                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-1">
+                  <Brain size={14} className="text-blue-500" />
+                  {tPathologies("title")}
+                </label>
+                {isEditing ? (
+                  <MultiSelect
+                    options={pathologies.map((pathology) => ({
+                      value: pathology.id,
+                      label: pathology.name,
+                      sublabel: pathology.description || undefined,
+                      avatarInitials: pathology.code,
+                    }))}
+                    values={formData.pathologyIds || []}
+                    onChange={(values) => setFormData((prev) => ({ ...prev, pathologyIds: values }))}
+                    placeholder={tPathologies("select")}
+                    emptyMessage="No hay patologías disponibles"
+                  />
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {patient.pathologies && patient.pathologies.length > 0 ? (
+                      patient.pathologies.map(p => (
+                        <span key={p.id} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {p.name}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">Ninguna patología registrada.</p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -487,6 +558,9 @@ export default function PatientDetailPage() {
                   </div>
                 </div>
               </div>
+
+
+
             </div>
           </div>
         )}
@@ -1124,7 +1198,6 @@ export default function PatientDetailPage() {
           </div>
         )}
 
-        {/* ── Evolución Tab ── */}
         {activeTab === "evolucion" && (
           <div className="h-full flex flex-col justify-center pb-8">
             <EvolutionChart patientId={id} />

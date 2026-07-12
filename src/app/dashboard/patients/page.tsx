@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { api } from "@/lib/api-client";
+import { RoleAwareFilters } from '@/components/ui/RoleAwareFilters';
 import { Patient, PageResponse } from "@/types";
 
 const riskColors: Record<string, "success" | "warning" | "danger" | "default"> = {
@@ -35,6 +36,8 @@ export default function PatientsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [centerId, setCenterId] = useState<string | undefined>();
+  const [projectId, setProjectId] = useState<string | undefined>();
 
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -60,13 +63,12 @@ export default function PatientsPage() {
     }
   };
 
-  // Build the query endpoint based on search query presence
   const endpoint = searchQuery.trim() 
     ? `/v1/patients/search?query=${encodeURIComponent(searchQuery)}&page=${currentPage}&size=8`
-    : `/v1/patients?page=${currentPage}&size=8${statusFilter ? `&status=${statusFilter}` : ""}`;
+    : `/v1/patients?page=${currentPage}&size=8${statusFilter ? `&status=${statusFilter}` : ""}${centerId ? `&centerId=${centerId}` : ""}${projectId ? `&projectId=${projectId}` : ""}`;
 
   const { data: pageData, isLoading, error } = useQuery<PageResponse<Patient>>({
-    queryKey: ["patients", searchQuery, currentPage, statusFilter],
+    queryKey: ["patients", searchQuery, currentPage, statusFilter, centerId, projectId],
     queryFn: async () => {
       return await api.get<PageResponse<Patient>>(endpoint);
     },
@@ -93,24 +95,34 @@ export default function PatientsPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 shrink-0">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-          <input
-            type="text"
-            placeholder="Buscar por nombre o ID..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+      <div className="flex flex-col gap-4 shrink-0">
+        <RoleAwareFilters 
+          onFiltersChange={({ centerId, projectId }) => {
+            setCenterId(centerId);
+            setProjectId(projectId);
+            setCurrentPage(0);
+          }} 
+        />
+        
+        <div className="flex gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+            <input
+              type="text"
+              placeholder="Buscar por nombre o ID..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <SearchableSelect
+            placeholder="Filtrar por estado"
+            options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))}
+            value={statusFilter}
+            onChange={(value) => setStatusFilter(value || "")}
+            className="w-48"
           />
         </div>
-        <SearchableSelect
-          placeholder="Filtrar por estado"
-          options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))}
-          value={statusFilter}
-          onChange={(value) => setStatusFilter(value || "")}
-          className="w-48"
-        />
       </div>
 
       {/* Table / Loading State */}

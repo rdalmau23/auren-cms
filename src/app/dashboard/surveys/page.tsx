@@ -15,6 +15,7 @@ import {
 import { SlideOver } from '@/components/ui/SlideOver';
 import { useConfirm } from '@/components/providers/ConfirmDialogProvider';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { RoleAwareFilters } from '@/components/ui/RoleAwareFilters';
 import { SurveyTemplate, SurveyQuestion, SurveyResponse, PageResponse, Patient } from '@/types';
 
 // ─── Question type options ────────────────────────────────────
@@ -37,6 +38,8 @@ export default function SurveysPage() {
   const t = useTranslations('surveys');
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'templates' | 'results'>('templates');
+  const [centerId, setCenterId] = useState<string | undefined>();
+  const [projectId, setProjectId] = useState<string | undefined>();
 
   // Template Slide-Over state
   const [isSlideOverOpen, setSlideOverOpen] = useState(false);
@@ -61,8 +64,13 @@ export default function SurveysPage() {
   });
 
   const { data: patientsPage } = useQuery<PageResponse<Patient>>({
-    queryKey: ['patients'],
-    queryFn: () => api.get<PageResponse<Patient>>('/v1/patients?size=100'),
+    queryKey: ['patients', centerId, projectId],
+    queryFn: () => {
+      let url = '/v1/patients?size=100';
+      if (centerId) url += `&centerId=${centerId}`;
+      if (projectId) url += `&projectId=${projectId}`;
+      return api.get<PageResponse<Patient>>(url);
+    },
   });
   const patients = patientsPage?.content ?? [];
 
@@ -365,6 +373,15 @@ export default function SurveysPage() {
         {/* ── Results Tab ── */}
         {activeTab === 'results' && (
           <div className="space-y-4 pb-4">
+            <RoleAwareFilters 
+              onFiltersChange={({ centerId, projectId }) => {
+                setCenterId(centerId);
+                setProjectId(projectId);
+                setSelectedPatientId('');
+                setEvolutionTemplateId(null);
+              }} 
+            />
+
             {/* Patient Select */}
             <div className="bg-white rounded-2xl border border-neutral-100 p-5">
               <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">

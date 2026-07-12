@@ -71,12 +71,15 @@ export function SearchableSelect({
             }
             setIsOpen(true);
           }}
-          onFocus={() => {
-            setIsOpen(true);
+          onFocus={(e) => {
+            if (!isOpen) {
+              setIsOpen(true);
+            }
             setSearch('');
           }}
-          onClick={() => {
+          onMouseDown={(e) => {
             if (!searchable) {
+              e.preventDefault(); // Prevents onFocus from firing on click
               setIsOpen(!isOpen);
             }
           }}

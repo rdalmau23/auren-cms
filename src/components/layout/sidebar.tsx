@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   Building2,
+  LineChart,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -32,6 +33,7 @@ const navigation = [
   { translationKey: "medications", href: "/dashboard/medications", icon: Pill },
   { translationKey: "surveys", href: "/dashboard/surveys", icon: ClipboardList },
   { translationKey: "chat", href: "/dashboard/chat", icon: MessageCircle },
+  { translationKey: "analytics", href: "/dashboard/analytics", icon: LineChart },
 ];
 
 const bottomNav = [

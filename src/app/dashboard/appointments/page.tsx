@@ -12,6 +12,7 @@ import { useSession } from 'next-auth/react';
 import { SlideOver } from '@/components/ui/SlideOver';
 import { AppointmentCalendar, AppointmentEvent } from './components/AppointmentCalendar';
 import { CalendarIcon, Plus } from 'lucide-react';
+import { RoleAwareFilters } from '@/components/ui/RoleAwareFilters';
 
 interface User {
   id: string;
@@ -103,6 +104,8 @@ export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past' | 'cancelled'>('upcoming');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentEvent | null>(null);
+  const [centerId, setCenterId] = useState<string | undefined>();
+  const [projectId, setProjectId] = useState<string | undefined>();
 
   // Fetch logged-in user profile to get professionalId
   const { data: profile } = useQuery<UserProfile | null>({
@@ -123,12 +126,15 @@ export default function AppointmentsPage() {
 
   // Fetch appointments (all if admin, specific professional if not)
   const { data: appointmentsResponse, isLoading: loadingAppointments } = useQuery<{ content: Appointment[] }>({
-    queryKey: ['appointments', isAdmin, profile?.professionalId, (session as any)?.accessToken],
+    queryKey: ['appointments', isAdmin, profile?.professionalId, (session as any)?.accessToken, centerId, projectId],
     queryFn: async () => {
       const token = (session as any)?.accessToken;
       if (!token) return { content: [] };
       if (isAdmin) {
-        const response = await api.get<{ content: Appointment[] }>('/v1/appointments?size=100', { token });
+        let url = '/v1/appointments?size=100';
+        if (centerId) url += `&centerId=${centerId}`;
+        if (projectId) url += `&projectId=${projectId}`;
+        const response = await api.get<{ content: Appointment[] }>(url, { token });
         return response;
       } else {
         if (!profile?.professionalId) return { content: [] };
@@ -187,11 +193,14 @@ export default function AppointmentsPage() {
 
   // Fetch patients list
   const { data: patientsResponse } = useQuery<{ content: Patient[] }>({
-    queryKey: ['patients', (session as any)?.accessToken],
+    queryKey: ['patients', (session as any)?.accessToken, centerId, projectId],
     queryFn: async () => {
       const token = (session as any)?.accessToken;
       if (!token) return { content: [] };
-      const response = await api.get<{ content: Patient[] }>('/v1/patients?size=100', { token });
+      let url = '/v1/patients?size=100';
+      if (centerId) url += `&centerId=${centerId}`;
+      if (projectId) url += `&projectId=${projectId}`;
+      const response = await api.get<{ content: Patient[] }>(url, { token });
       return response;
     },
     enabled: !!(session as any)?.accessToken,
@@ -294,6 +303,13 @@ export default function AppointmentsPage() {
           <span>{t('newAppointment')}</span>
         </button>
       </div>
+
+      <RoleAwareFilters 
+        onFiltersChange={({ centerId, projectId }) => {
+          setCenterId(centerId);
+          setProjectId(projectId);
+        }} 
+      />
 
       <div className="flex-1 min-h-0 flex flex-col h-full overflow-hidden">
         <AppointmentCalendar 

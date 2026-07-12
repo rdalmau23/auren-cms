@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { Treatment, PageResponse, Patient, MedicationSchedule } from '@/types';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { RoleAwareFilters } from '@/components/ui/RoleAwareFilters';
 import { toast } from 'sonner';
 import { SlideOver } from '@/components/ui/SlideOver';
 import { Plus, CheckCircle2, XCircle, Search, CalendarDays, Save, Trash2, StopCircle, Edit2 } from 'lucide-react';
@@ -19,6 +20,8 @@ export function TreatmentsTab() {
   const [isSlideOverOpen, setSlideOverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
+  const [centerId, setCenterId] = useState<string | undefined>();
+  const [projectId, setProjectId] = useState<string | undefined>();
 
   // Form State
   const [patientId, setPatientId] = useState('');
@@ -28,8 +31,13 @@ export function TreatmentsTab() {
   const [instructions, setInstructions] = useState('');
 
   const { data: treatmentsPage, isLoading } = useQuery({
-    queryKey: ['treatments', 'global'],
-    queryFn: () => api.get<PageResponse<Treatment>>('/v1/medications/treatments?page=0&size=20'),
+    queryKey: ['treatments', 'global', centerId, projectId],
+    queryFn: () => {
+      let url = '/v1/medications/treatments?page=0&size=50';
+      if (centerId) url += `&centerId=${centerId}`;
+      if (projectId) url += `&projectId=${projectId}`;
+      return api.get<PageResponse<Treatment>>(url);
+    },
   });
 
   const { data: patientsPage } = useQuery({
@@ -161,6 +169,13 @@ export function TreatmentsTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <RoleAwareFilters 
+        onFiltersChange={({ centerId, projectId }) => {
+          setCenterId(centerId);
+          setProjectId(projectId);
+        }} 
+      />
+
       <div className="flex items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

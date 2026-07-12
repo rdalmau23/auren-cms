@@ -38,6 +38,7 @@ export interface Patient {
   occupation: string | null;
   educationLevel: string | null;
   housingSituation: string | null;
+  pathologies: Pathology[];
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +78,39 @@ export interface PatientCreateRequest {
   occupation?: string;
   educationLevel?: string;
   housingSituation?: string;
+  pathologyIds?: string[];
+}
+
+// ─── Pathology Types ────────────────────────────────────────
+
+export interface Pathology {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+}
+
+// ─── TCA Types ──────────────────────────────────────────────
+
+export interface TCAMealLogResponse {
+  id: string;
+  patientId: string;
+  mealType: "BREAKFAST" | "LUNCH" | "DINNER" | "SNACK";
+  foodDescription: string | null;
+  emotions: string | null;
+  bingeUrge: boolean;
+  purgeUrge: boolean;
+  date: string;
+  createdAt: string;
+}
+
+export interface TCAWeightLogResponse {
+  id: string;
+  patientId: string;
+  weight: number;
+  notes: string | null;
+  date: string;
+  createdAt: string;
 }
 
 // ─── Appointment Types ──────────────────────────────────────
@@ -199,6 +233,25 @@ export interface DailyMood {
   sleepHours: number | null;
   energyScore: number | null;
   notes: string | null;
+  createdAt: string;
+}
+
+// ─── Modules Types ───────────────────────────────────────────
+
+export interface PatientModule {
+  moduleId: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+}
+
+// ─── Project Types ───────────────────────────────────────────
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
   createdAt: string;
 }
 
