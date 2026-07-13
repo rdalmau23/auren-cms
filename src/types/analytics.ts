@@ -49,3 +49,31 @@ export interface PatientAnalyticsSummary {
   };
   surveysCompleted: number;
 }
+
+export interface PharmacologyCategoryStats {
+  category: string;
+  adherence: number;
+  totalLogs: number;
+}
+
+export interface PharmacologyMedicationStats {
+  medication: string;
+  category: string;
+  adherence: number;
+  totalLogs: number;
+}
+
+export interface PharmacologyCorrelations {
+  category: string;
+  avgMood: number;
+  avgAnxiety: number;
+  avgSleep: number;
+}
+
+export interface PharmacologyAnalytics {
+  overallAdherence: number;
+  totalLogs: number;
+  adherenceByCategory: PharmacologyCategoryStats[];
+  adherenceByMedication: PharmacologyMedicationStats[];
+  correlations: PharmacologyCorrelations[];
+}
