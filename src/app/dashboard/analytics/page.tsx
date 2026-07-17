@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { analyticsApi } from "@/lib/analytics-client";
-import { AnalyticsSummary, MoodTrendPoint, PharmacologyAnalytics } from "@/types/analytics";
+import { AnalyticsSummary, MoodTrendPoint, PharmacologyAnalytics, ClinicalTrialsAnalytics } from "@/types/analytics";
 import { RoleAwareFilters } from '@/components/ui/RoleAwareFilters';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { 
@@ -54,14 +54,20 @@ export default function AnalyticsDashboardPage() {
     queryFn: () => analyticsApi.get<PharmacologyAnalytics>(buildQueryString("/v1/analytics/pharmacology")),
   });
 
+  const { data: clinicalTrials, isLoading: isLoadingCT, isError: isErrorCT, refetch: refetchCT } = useQuery({
+    queryKey: ["analytics", "clinicalTrials", centerId, projectId],
+    queryFn: () => analyticsApi.get<ClinicalTrialsAnalytics>(buildQueryString("/v1/analytics/clinical-trials/adherence")),
+  });
+
   const handleRefresh = () => {
     refetchSummary();
     refetchTrends();
     refetchPharm();
+    refetchCT();
   };
 
-  const isLoading = isLoadingSummary || isLoadingTrends || isLoadingPharm;
-  const isError = isErrorSummary || isErrorTrends || isErrorPharm;
+  const isLoading = isLoadingSummary || isLoadingTrends || isLoadingPharm || isLoadingCT;
+  const isError = isErrorSummary || isErrorTrends || isErrorPharm || isErrorCT;
 
   // Formatting trend dates
   const formattedTrends = trends?.map(tPoint => ({
@@ -307,7 +313,29 @@ export default function AnalyticsDashboardPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={pharmacology.adherenceByCategory} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                          <XAxis dataKey="category" tickFormatter={(val) => t(`categories.${val}` as any) || val} axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} />
+                          <XAxis 
+                            dataKey="category" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            interval={0}
+                            height={60}
+                            tick={(props: any) => {
+                              const { x, y, payload } = props;
+                              const label = t(`categories.${payload.value}` as any) || payload.value;
+                              const words = label.split(' ');
+                              return (
+                                <g transform={`translate(${x},${y + 10})`}>
+                                  <text x={0} y={0} dy={14} textAnchor="middle" fill="#6B7280" fontSize={11}>
+                                    {words.map((word: string, index: number) => (
+                                      <tspan x={0} dy={index === 0 ? 0 : 14} key={index}>
+                                        {word}
+                                      </tspan>
+                                    ))}
+                                  </text>
+                                </g>
+                              );
+                            }}
+                          />
                           <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} domain={[0, 100]} />
                           <RechartsTooltip content={<CustomTooltip />} />
                           <Bar 
@@ -413,6 +441,80 @@ export default function AnalyticsDashboardPage() {
                 </div>
               </div>
             </>
+          )}
+
+          {/* Clinical Trials & Retention */}
+          {clinicalTrials && (
+            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mt-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900">Ensayos Clínicos: Retención y Abandono</h3>
+                <div className="flex flex-col text-right">
+                  <span className="text-xs text-gray-500">Tasa de Retención</span>
+                  <span className="text-xl font-bold text-blue-600">{clinicalTrials.retentionRate.toFixed(1)}%</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-4">Estado de Pacientes</h4>
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Activos', value: clinicalTrials.activePatients, color: '#3B82F6' },
+                            { name: 'Completados', value: clinicalTrials.completedPatients, color: '#10B981' },
+                            { name: 'Abandonos', value: clinicalTrials.dropoutPatients, color: '#EF4444' }
+                          ].filter(d => d.value > 0)}
+                          cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2} dataKey="value"
+                        >
+                          {
+                            [
+                              { name: 'Activos', value: clinicalTrials.activePatients, color: '#3B82F6' },
+                              { name: 'Completados', value: clinicalTrials.completedPatients, color: '#10B981' },
+                              { name: 'Abandonos', value: clinicalTrials.dropoutPatients, color: '#EF4444' }
+                            ].filter(d => d.value > 0).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))
+                          }
+                        </Pie>
+                        <RechartsTooltip content={<CustomTooltip />} />
+                        <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-4">Motivos de Abandono (Drop-out)</h4>
+                  {clinicalTrials.dropoutReasons.length > 0 ? (
+                    <div className="space-y-4">
+                      {clinicalTrials.dropoutReasons.map((reason, idx) => (
+                        <div key={idx}>
+                          <div className="flex justify-between items-center mb-1 text-sm">
+                            <span className="font-medium text-gray-700">
+                              {reason.reason === 'VOLUNTARY_DROPOUT' && 'Abandono voluntario'}
+                              {reason.reason === 'MEDICAL_INABILITY' && 'Incapacidad médica'}
+                              {reason.reason === 'DECEASED' && 'Fallecimiento'}
+                              {reason.reason === 'LOST_TO_FOLLOWUP' && 'Pérdida de seguimiento'}
+                              {reason.reason === 'PROTOCOL_VIOLATION' && 'Violación de protocolo'}
+                              {reason.reason === 'OTHER' && 'Otro motivo'}
+                              {!['VOLUNTARY_DROPOUT', 'MEDICAL_INABILITY', 'DECEASED', 'LOST_TO_FOLLOWUP', 'PROTOCOL_VIOLATION', 'OTHER'].includes(reason.reason) && reason.reason}
+                            </span>
+                            <span className="text-gray-500 font-semibold">{reason.percentage.toFixed(1)}% ({reason.count})</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2">
+                            <div className="bg-red-500 h-2 rounded-full" style={{ width: `${reason.percentage}%` }}></div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full bg-gray-50 rounded-xl border border-gray-100">
+                      <p className="text-sm text-gray-500">No hay datos de abandono registrados.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
         </>
       )}

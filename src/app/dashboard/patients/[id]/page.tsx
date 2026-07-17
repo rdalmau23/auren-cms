@@ -927,22 +927,60 @@ export default function PatientDetailPage() {
                     <SearchableSelect
                       options={[
                         { value: 'ACTIVE', label: 'Activo' },
-                        { value: 'DISCHARGED', label: 'De Alta' },
-                        { value: 'ON_LEAVE', label: 'De Permiso' },
-                        { value: 'WAITLIST', label: 'Lista de Espera' },
+                        { value: 'COMPLETED', label: 'Finalizado' },
+                        { value: 'INACTIVE', label: 'Inactivo' },
+                        { value: 'PENDING', label: 'Pendiente' },
                       ]}
                       value={formData.status || 'ACTIVE'}
-                      onChange={(val) => handleInputChange("status", val)}
+                      onChange={(val) => {
+                        handleInputChange("status", val);
+                        if (val !== 'INACTIVE') {
+                          handleInputChange("inactivityReason", null);
+                        }
+                      }}
                       searchable={false}
                     />
                   ) : (
                     <p className="text-sm text-gray-800 font-semibold">
                       {patient.status === "ACTIVE" && "Activo"}
-                      {patient.status === "DISCHARGED" && "De Alta"}
-                      {patient.status === "ON_LEAVE" && "De Permiso"}
-                      {patient.status === "WAITLIST" && "Lista de Espera"}
+                      {patient.status === "COMPLETED" && "Finalizado"}
+                      {patient.status === "INACTIVE" && "Inactivo"}
+                      {patient.status === "PENDING" && "Pendiente"}
                     </p>
                   )}
+                </div>
+
+                {/* Inactivity Reason (conditional) */}
+                {(formData.status === 'INACTIVE' || patient.status === 'INACTIVE') && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-gray-500 uppercase">Motivo de inactividad</label>
+                    {isEditing ? (
+                      <SearchableSelect
+                        options={[
+                          { value: 'VOLUNTARY_DROPOUT', label: 'Abandono voluntario' },
+                          { value: 'MEDICAL_INABILITY', label: 'Incapacidad médica' },
+                          { value: 'DECEASED', label: 'Fallecimiento' },
+                          { value: 'LOST_TO_FOLLOWUP', label: 'Pérdida de seguimiento' },
+                          { value: 'PROTOCOL_VIOLATION', label: 'Violación de protocolo' },
+                          { value: 'OTHER', label: 'Otro motivo' },
+                        ]}
+                        value={formData.inactivityReason || ''}
+                        onChange={(val) => handleInputChange("inactivityReason", val)}
+                        searchable={false}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-800 font-semibold">
+                        {patient.inactivityReason === "VOLUNTARY_DROPOUT" && "Abandono voluntario"}
+                        {patient.inactivityReason === "MEDICAL_INABILITY" && "Incapacidad médica"}
+                        {patient.inactivityReason === "DECEASED" && "Fallecimiento"}
+                        {patient.inactivityReason === "LOST_TO_FOLLOWUP" && "Pérdida de seguimiento"}
+                        {patient.inactivityReason === "PROTOCOL_VIOLATION" && "Violación de protocolo"}
+                        {patient.inactivityReason === "OTHER" && "Otro motivo"}
+                        {!patient.inactivityReason && "No especificado"}
+                      </p>
+                    )}
+                  </div>
+                )}
                 </div>
 
                 {/* Email (Read-only) */}

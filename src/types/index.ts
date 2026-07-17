@@ -18,7 +18,8 @@ export interface Patient {
   riskLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
   admissionDate: string | null;
   dischargeDate: string | null;
-  status: "ACTIVE" | "DISCHARGED" | "ON_LEAVE" | "WAITLIST";
+  status: "ACTIVE" | "COMPLETED" | "INACTIVE" | "PENDING";
+  inactivityReason: string | null;
   isSmoker: boolean;
   alcoholConsumption: "NONE" | "OCCASIONAL" | "FREQUENT";
   substanceUse: string | null;
@@ -58,6 +59,8 @@ export interface PatientCreateRequest {
   gender?: string;
   diagnosis?: string;
   riskLevel?: string;
+  status?: string;
+  inactivityReason?: string | null;
   admissionDate?: string;
   isSmoker?: boolean;
   alcoholConsumption?: string;

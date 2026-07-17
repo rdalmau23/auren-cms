@@ -77,3 +77,19 @@ export interface PharmacologyAnalytics {
   adherenceByMedication: PharmacologyMedicationStats[];
   correlations: PharmacologyCorrelations[];
 }
+
+export interface DropoutReasonStats {
+  reason: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ClinicalTrialsAnalytics {
+  totalPatients: number;
+  activePatients: number;
+  completedPatients: number;
+  dropoutPatients: number;
+  retentionRate: number;
+  dropoutReasons: DropoutReasonStats[];
+}
+

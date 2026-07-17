@@ -4,6 +4,9 @@ const authMiddleware = withAuth({
   callbacks: {
     authorized: ({ token }) => !!token,
   },
+  pages: {
+    signIn: '/api/auth/signin/keycloak',
+  },
 });
 
 export default function middleware(req: any, event: any) {

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
+import { useSession } from 'next-auth/react';
+import { Client } from '@stomp/stompjs';
 
 interface User {
   id: string;
@@ -28,10 +30,14 @@ interface ChatMessage {
 
 export default function ChatPage() {
   const t = useTranslations('chat');
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // STOMP Client ref
+  const stompClientRef = useRef<Client | null>(null);
 
   // Fetch all patients for sidebar
   const { data: patientsResponse, isLoading } = useQuery<{ content: Patient[] }>({
@@ -65,14 +71,13 @@ export default function ChatPage() {
     enabled: !!selectedPatient?.id,
   });
 
-  // 2. Get Messages for conversation
+  // 2. Get Messages for conversation (Polling removed)
   const { data: messagesData, isLoading: isLoadingMessages } = useQuery({
     queryKey: ['chat', 'messages', conversation?.id],
     queryFn: async () => {
       return await api.get<any[]>(`/v1/chat/conversations/${conversation?.id}/messages`);
     },
     enabled: !!conversation?.id,
-    refetchInterval: 3000, // Basic polling
   });
 
   // 3. Send Message Mutation
@@ -80,10 +85,67 @@ export default function ChatPage() {
     mutationFn: async (text: string) => {
       return await api.post(`/v1/chat/conversations/${conversation?.id}/messages`, { content: text });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat', 'messages', conversation?.id] });
+    onSuccess: (newMessage) => {
+      queryClient.setQueryData(['chat', 'messages', conversation?.id], (old: any[]) => {
+        return [...(old || []), newMessage];
+      });
     }
   });
+
+  // STOMP WebSocket Connection
+  useEffect(() => {
+    const token = (session as any)?.accessToken;
+    const userId = (session as any)?.user?.id;
+    if (!token || !userId) return;
+
+    const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws').replace('/api', '/ws') || 'ws://localhost:8080/ws';
+
+    const client = new Client({
+      brokerURL: wsUrl,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`
+      },
+      debug: function (str) {
+        console.log('[STOMP] ' + str);
+      },
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+    });
+
+    client.onConnect = function (frame) {
+      console.log('[STOMP] Connected: ' + frame);
+      
+      // Subscribe to user queue for new messages
+      client.subscribe('/user/queue/messages', (messageFrame) => {
+        if (messageFrame.body) {
+          const newMessage = JSON.parse(messageFrame.body);
+          console.log('[STOMP] New message received:', newMessage);
+          
+          // Update the cache directly for the relevant conversation
+          queryClient.setQueryData(['chat', 'messages', newMessage.conversationId], (old: any[]) => {
+            // Avoid duplicates
+            if (old && old.find(m => m.id === newMessage.id)) return old;
+            return [...(old || []), newMessage];
+          });
+        }
+      });
+    };
+
+    client.onStompError = function (frame) {
+      console.error('[STOMP] Broker reported error: ' + frame.headers['message']);
+      console.error('[STOMP] Additional details: ' + frame.body);
+    };
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+      }
+    };
+  }, [session, queryClient]);
 
   const activeMessages = messagesData || [];
 
