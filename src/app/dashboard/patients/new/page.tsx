@@ -24,6 +24,8 @@ export default function NewPatientPage() {
     surname: "",
     email: "",
     phone: "",
+    dni: "",
+    nhc: "",
     
     // Clinical & Admin info
     centerId: "",
@@ -153,6 +155,8 @@ export default function NewPatientPage() {
       surname: formData.surname,
       email: formData.email,
       phone: formData.phone || undefined,
+      dni: formData.dni || undefined,
+      nhc: formData.nhc || undefined,
       centerId: isSuperAdmin ? formData.centerId : undefined,
       primaryProfessionalId: isAdmin ? formData.primaryProfessionalId || undefined : undefined,
       extraProfessionalIds: isAdmin ? formData.extraProfessionalIds : undefined,
@@ -291,6 +295,32 @@ export default function NewPatientPage() {
                 onChange={handleInputChange}
                 className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
                 placeholder="Ej. 600123456"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                DNI / NIF
+              </label>
+              <input
+                type="text"
+                name="dni"
+                value={formData.dni}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Ej. 12345678Z"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Nº de Historia Clínica (NHC)
+              </label>
+              <input
+                type="text"
+                name="nhc"
+                value={formData.nhc}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Ej. NHC-123456"
               />
             </div>
             <div>

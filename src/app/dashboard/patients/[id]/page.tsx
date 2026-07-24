@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { api } from "@/lib/api-client";
 import { Patient, Appointment, Treatment, DailyMood, SurveyResponse, PageResponse } from "@/types";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -10,7 +11,7 @@ import {
   ChevronLeft, Edit2, Check, X, Shield, Activity, 
   User, Heart, Cigarette, Beer, HelpCircle, Dumbbell, AlertTriangle,
   Flame, ShieldAlert, PhoneCall, UserPlus, Calendar, Pill, Brain, ClipboardList,
-  Smile, Frown, Meh, TrendingUp, CheckCircle2, Clock, Blocks
+  Smile, Frown, Meh, TrendingUp, CheckCircle2, Clock, Blocks, Download
 } from "lucide-react";
 import Link from "next/link";
 import { format } from 'date-fns';
@@ -20,6 +21,7 @@ import { TCAModuleTab } from '../components/TCAModuleTab';
 import { MultiSelect } from '@/components/ui/MultiSelect';
 import { Pathology } from "@/types";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 const riskColors = {
   LOW: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -35,12 +37,26 @@ export default function PatientDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [activeTab, setActiveTab] = useState<"clinical" | "habits" | "general" | "historial" | "evolucion" | "modulos" | "tca">("clinical");
+
+  const { data: session } = useSession();
+  const roles: string[] = (session as any)?.roles || [];
+  const isSuperAdmin = roles.includes("SUPER_ADMIN");
+  const isCenterAdmin = roles.includes("CENTER_ADMIN");
 
   // Local form state for updates
   const [formData, setFormData] = useState<Partial<Patient & { pathologyIds?: string[] }>>({});
 
   const tPathologies = useTranslations("pathologies");
+
+  // Query current user profile to determine permissions scope
+  const { data: currentUserProfile } = useQuery<any>({
+    queryKey: ["user-me"],
+    queryFn: async () => {
+      return await api.get<any>("/v1/users/me");
+    },
+  });
 
   // Query patient data
   const { data: patient, isLoading, error } = useQuery<Patient>({
@@ -55,6 +71,13 @@ export default function PatientDetailPage() {
     },
   });
 
+  const isAssigned = patient?.professionals?.some(p => p.id === currentUserProfile?.professionalId);
+  const isSameCenter = patient?.centerId === currentUserProfile?.centerId;
+  const isEditingAllowed = 
+    isSuperAdmin || 
+    (isCenterAdmin && isSameCenter) ||
+    (!isSuperAdmin && !isCenterAdmin && isAssigned);
+
   // Query pathologies
   const { data: pathologies = [] } = useQuery<Pathology[]>({
     queryKey: ["pathologies"],
@@ -68,11 +91,19 @@ export default function PatientDetailPage() {
   const updateMutation = useMutation({
     mutationFn: async (updatedData: any) => {
       return await api.put<Patient>(`/v1/patients/${id}`, {
+        name: updatedData.name,
+        surname: updatedData.surname,
+        email: updatedData.email,
+        phone: updatedData.phone,
         birthDate: updatedData.birthDate,
         gender: updatedData.gender,
         diagnosis: updatedData.diagnosis,
         riskLevel: updatedData.riskLevel,
         status: updatedData.status,
+        inactivityReason: updatedData.inactivityReason,
+        dischargeDate: updatedData.dischargeDate,
+        dni: updatedData.dni,
+        nhc: updatedData.nhc,
         isSmoker: updatedData.isSmoker,
         alcoholConsumption: updatedData.alcoholConsumption,
         substanceUse: updatedData.substanceUse,
@@ -167,6 +198,35 @@ export default function PatientDetailPage() {
     setIsEditing(false);
   };
 
+  const handleDownloadReport = async () => {
+    try {
+      setIsDownloading(true);
+      
+      const response = await fetch(`http://localhost:8080/api/v1/reports/patients/${id}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${(session as any)?.accessToken}`
+        }
+      });
+      
+      if (!response.ok) throw new Error('Error al generar el informe');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Informe_Auren_${patient?.name}_${patient?.surname}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error(err);
+      toast.error('No se pudo descargar el informe clínico');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full space-y-6 overflow-hidden">
       {/* Navigation */}
@@ -198,13 +258,25 @@ export default function PatientDetailPage() {
             </button>
           </div>
         ) : (
-          <button 
-            onClick={() => setIsEditing(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-sm font-medium text-gray-700 rounded-xl hover:bg-gray-50 transition-all cursor-pointer shadow-sm"
-          >
-            <Edit2 size={16} />
-            Editar Ficha
-          </button>
+          isEditingAllowed && (
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadReport}
+                disabled={isDownloading}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-sm font-medium text-indigo-700 rounded-xl hover:bg-indigo-50 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+              >
+                <Download size={16} />
+                {isDownloading ? "Generando..." : "Descargar Informe"}
+              </button>
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-sm font-medium text-gray-700 rounded-xl hover:bg-gray-50 transition-all cursor-pointer shadow-sm"
+              >
+                <Edit2 size={16} />
+                Editar Ficha
+              </button>
+            </div>
+          )
         )}
       </div>
 
@@ -215,7 +287,26 @@ export default function PatientDetailPage() {
             {patient.name[0]}{patient.surname[0]}
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{patient.name} {patient.surname}</h1>
+            {isEditing ? (
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={formData.name || ""}
+                  onChange={(e) => handleInputChange("name", e.target.value)}
+                  placeholder="Nombre"
+                  className="px-3 py-1 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors text-gray-900 font-semibold"
+                />
+                <input
+                  type="text"
+                  value={formData.surname || ""}
+                  onChange={(e) => handleInputChange("surname", e.target.value)}
+                  placeholder="Apellidos"
+                  className="px-3 py-1 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors text-gray-900 font-semibold"
+                />
+              </div>
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900">{patient.name} {patient.surname}</h1>
+            )}
             <div className="flex flex-wrap items-center gap-2 mt-1.5">
               <span className={`inline-flex px-2.5 py-0.5 text-xs font-semibold rounded-full border ${riskColors[formData.riskLevel || "LOW"]}`}>
                 Riesgo: {riskLabels[formData.riskLevel || "LOW"]}
@@ -683,6 +774,42 @@ export default function PatientDetailPage() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* DNI */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase">DNI / NIF</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={formData.dni || ""}
+                      onChange={(e) => handleInputChange("dni", e.target.value)}
+                      placeholder="Ej. 12345678Z"
+                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-gray-900"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-800 font-medium">
+                      {patient.dni || "No especificado"}
+                    </p>
+                  )}
+                </div>
+
+                {/* NHC */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-gray-500 uppercase">Nº de Historia Clínica (NHC)</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={formData.nhc || ""}
+                      onChange={(e) => handleInputChange("nhc", e.target.value)}
+                      placeholder="Ej. NHC-123456"
+                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-gray-900"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-800 font-medium">
+                      {patient.nhc || "No especificado"}
+                    </p>
+                  )}
+                </div>
+
                 {/* Birth Date */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Fecha de Nacimiento</label>
@@ -691,7 +818,7 @@ export default function PatientDetailPage() {
                       type="date"
                       value={formData.birthDate || ""}
                       onChange={(e) => handleInputChange("birthDate", e.target.value)}
-                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-gray-900"
                     />
                   ) : (
                     <p className="text-sm text-gray-800 font-medium">
@@ -981,22 +1108,41 @@ export default function PatientDetailPage() {
                     )}
                   </div>
                 )}
-                </div>
 
-                {/* Email (Read-only) */}
+                {/* Email */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Correo Electrónico</label>
-                  <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
-                    {patient.email}
-                  </p>
+                  {isEditing ? (
+                    <input
+                      type="email"
+                      value={formData.email || ""}
+                      onChange={(e) => handleInputChange("email", e.target.value)}
+                      placeholder="Ej. paciente@example.com"
+                      className="px-3 py-2 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors text-gray-900 font-semibold"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100 font-semibold">
+                      {patient.email}
+                    </p>
+                  )}
                 </div>
 
-                {/* Phone (Read-only) */}
+                {/* Phone */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs font-semibold text-gray-500 uppercase">Teléfono Móvil</label>
-                  <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100">
-                    {patient.phone || "No registrado"}
-                  </p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={formData.phone || ""}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      placeholder="Ej. 600123456"
+                      className="px-3 py-2 bg-gray-50/50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors text-gray-900 font-semibold"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-xl border border-gray-100 font-semibold">
+                      {patient.phone || "No registrado"}
+                    </p>
+                  )}
                 </div>
 
                 {/* Admission Date (Read-only) */}

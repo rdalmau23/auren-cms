@@ -16,6 +16,7 @@ interface User {
 
 interface Patient {
   id: string;
+  userId: string;
   name: string;
   surname: string;
   email?: string;
@@ -62,14 +63,16 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // 1. Get Conversation with selected patient
-  const { data: conversation } = useQuery({
-    queryKey: ['chat', 'conversation', selectedPatient?.id],
+  // 1. Get Conversation  // Fetch or create conversation
+  const { data: conversationData } = useQuery({
+    queryKey: ['chat', 'conversation', selectedPatient?.userId],
     queryFn: async () => {
-      return await api.get<any>(`/v1/chat/conversations/with/${selectedPatient?.id}`);
+      return await api.get<any>(`/v1/chat/conversations/with/${selectedPatient?.userId}`);
     },
-    enabled: !!selectedPatient?.id,
+    enabled: !!selectedPatient?.userId,
   });
+
+  const conversation = conversationData;
 
   // 2. Get Messages for conversation (Polling removed)
   const { data: messagesData, isLoading: isLoadingMessages } = useQuery({
@@ -246,7 +249,7 @@ export default function ChatPage() {
               ) : (
                 activeMessages.map((msg: any) => {
                   // In CMS, the current user is a professional, so they are not the patient.
-                  const isDoc = msg.senderId !== selectedPatient.id;
+                  const isDoc = msg.senderId !== selectedPatient.userId;
                   
                   return (
                     <div

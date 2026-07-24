@@ -321,6 +321,8 @@ export interface UserProfile {
   professionalId: string;
   speciality: string;
   licenseNumber: string;
+  centerId: string | null;
+  centerName: string | null;
 }
 
 export interface AlertConfig {
@@ -328,4 +330,42 @@ export interface AlertConfig {
   maxDaysWithoutMedication: number;
   criticalAnxietyThreshold: number;
   criticalDepressionThreshold: number;
+}
+
+// --- Dynamic Forms & Observations (RWD Architecture) ---
+
+export type FieldType = 'TEXT' | 'NUMBER' | 'BOOLEAN' | 'SELECT' | 'DATE' | 'JSON';
+
+export interface FormFieldSchema {
+  id: string;
+  name: string;
+  label: string;
+  type: FieldType;
+  required?: boolean;
+  options?: { label: string; value: string | number }[]; // For SELECT
+  placeholder?: string;
+  description?: string;
+}
+
+export interface ModuleSchema {
+  moduleId: string;
+  moduleCode: string;
+  title: string;
+  fields: FormFieldSchema[];
+}
+
+export interface ClinicalObservation {
+  id: string;
+  patientId: string;
+  projectId: string;
+  moduleId?: string;
+  professionalId?: string;
+  observationType: string;
+  category?: string;
+  valueNumeric?: number;
+  valueText?: string;
+  valueBoolean?: boolean;
+  valueJsonb?: any;
+  unit?: string;
+  observedAt: string;
 }

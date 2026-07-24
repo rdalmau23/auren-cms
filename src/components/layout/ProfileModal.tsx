@@ -17,6 +17,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     surname: "",
+    email: "",
     phone: "",
     language: "es",
     speciality: "",
@@ -39,6 +40,7 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
       setFormData({
         name: profile.name || "",
         surname: profile.surname || "",
+        email: profile.email || "",
         phone: profile.phone || "",
         language: profile.language || "es",
         speciality: profile.speciality || "",
@@ -142,6 +144,21 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
                     className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-gray-900"
                   />
                 </div>
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all text-gray-900"
+                />
               </div>
 
               {/* Phone */}
