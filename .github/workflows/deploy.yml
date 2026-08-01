@@ -33,7 +33,7 @@ jobs:
           path: auren-shared
           # IMPORTANTE: Si el repositorio auren-shared es privado, necesitarás crear un Personal Access Token (PAT)
           # en GitHub, añadirlo como un Secret en este repositorio (ej. GH_PAT), y descomentar la siguiente línea:
-          # token: ${{ secrets.GH_PAT }}
+          token: ${{ secrets.GH_PAT }}
 
       - name: Configure AWS Credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
