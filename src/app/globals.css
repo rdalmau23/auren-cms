@@ -33,6 +33,11 @@
   --color-risk-high: #F97316;
   --color-risk-critical: #EF4444;
 
+  --color-gamification-streak: #F97316;
+  --color-gamification-streakLight: #FFEDD5;
+  --color-gamification-streakGradientStart: #F59E0B;
+  --color-gamification-streakGradientEnd: #F97316;
+
   --font-sans: "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }

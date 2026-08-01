@@ -327,7 +327,7 @@ export default function ProfessionalsPage() {
                       <p className="text-xs text-gray-400 mt-0.5">Licencia: {prof.licenseNumber || 'N/A'}</p>
                       
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        <Badge variant="indigo" className="text-[10px]">
+                        <Badge variant="blue" className="text-[10px]">
                           {getRoleLabel(userRoleName)}
                         </Badge>
                         <Badge variant="neutral" className="text-[10px] bg-gray-50 border border-gray-200/60 text-gray-600 font-medium">
@@ -359,7 +359,7 @@ export default function ProfessionalsPage() {
                     {canEdit(prof) && (
                       <Button
                         variant="outline"
-                        size="xs"
+                        size="sm"
                         onClick={() => handleOpenEdit(prof)}
                         className="gap-1 px-2.5 py-1 text-xs"
                       >

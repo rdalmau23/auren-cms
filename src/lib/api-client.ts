@@ -24,13 +24,13 @@ class ApiClient {
     // If client-side and no token provided, try to fetch from next-auth session
     if (!token && typeof window !== "undefined") {
       const session = await getSession();
-      console.log("[ApiClient Debug] getSession() result:", session);
+
       if (session && (session as any).accessToken) {
         token = (session as any).accessToken;
       }
     }
 
-    console.log("[ApiClient Debug] Request:", endpoint, "Token present:", !!token);
+
 
     if (token) {
       (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;

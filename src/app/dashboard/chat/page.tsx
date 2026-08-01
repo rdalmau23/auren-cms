@@ -6,6 +6,9 @@ import { api } from '@/lib/api-client';
 import { useTranslations } from 'next-intl';
 import { useSession } from 'next-auth/react';
 import { Client } from '@stomp/stompjs';
+import { Video } from 'lucide-react';
+import { VideoRoomOverlay } from '../../../components/chat/VideoRoomOverlay';
+import { EventTracker } from '@/lib/analytics';
 
 interface User {
   id: string;
@@ -35,6 +38,8 @@ export default function ChatPage() {
   const queryClient = useQueryClient();
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [inputText, setInputText] = useState('');
+  const [activeRoomUrl, setActiveRoomUrl] = useState<string | null>(null);
+  const [isStartingCall, setIsStartingCall] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // STOMP Client ref
@@ -164,6 +169,33 @@ export default function ChatPage() {
     setInputText('');
   };
 
+  const handleStartCall = async () => {
+    if (!conversation?.id || isStartingCall) return;
+    try {
+      setIsStartingCall(true);
+      
+      // 1. Ask Backend to generate a Daily.co Room URL
+      const response = await api.post<{roomUrl: string, roomName: string, professionalToken: string, patientToken: string}>(`/v1/chat/conversations/${conversation.id}/video-room`, {});
+      
+      // Track video call started
+      EventTracker.track({
+        name: 'VideoCall_Started',
+        properties: { patientId: selectedPatient?.userId || '' }
+      });
+
+      // 2. Open the UI overlay with the room URL (append the professional token)
+      setActiveRoomUrl(`${response.roomUrl}?t=${response.professionalToken}`);
+      
+      // 3. Send a chat message with the link so the patient can join from mobile
+      sendMessageMutation.mutate(`[SISTEMA] El Doctor ha iniciado una consulta telemática. Únete desde este enlace seguro: ${response.roomUrl}?t=${response.patientToken}`);
+      
+    } catch (error) {
+      console.error('Error starting video call', error);
+    } finally {
+      setIsStartingCall(false);
+    }
+  };
+
   return (
     <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-6 overflow-hidden">
       {/* Left Sidebar - Chat List */}
@@ -235,6 +267,14 @@ export default function ChatPage() {
                   </div>
                 </div>
               </div>
+              <button
+                onClick={handleStartCall}
+                disabled={isStartingCall || !conversation?.id}
+                className="h-10 px-4 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-50 font-semibold text-sm border border-primary-200"
+              >
+                <Video size={18} />
+                {isStartingCall ? 'Iniciando...' : 'Videollamada'}
+              </button>
             </div>
 
             {/* Message Area */}
@@ -263,7 +303,7 @@ export default function ChatPage() {
                             : 'bg-white text-neutral-800 border border-neutral-100 rounded-tl-none'
                         }`}
                       >
-                        <p className="leading-relaxed">{msg.content}</p>
+                        <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                         <span
                           className={`block text-[9px] mt-1.5 text-right ${
                             isDoc ? 'text-primary-200' : 'text-neutral-400'
@@ -304,6 +344,10 @@ export default function ChatPage() {
           </div>
         )}
       </div>
+
+      {activeRoomUrl && (
+        <VideoRoomOverlay roomUrl={activeRoomUrl} onLeave={() => setActiveRoomUrl(null)} />
+      )}
     </div>
   );
 }

@@ -18,7 +18,7 @@ export interface Patient {
   riskLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
   admissionDate: string | null;
   dischargeDate: string | null;
-  status: "ACTIVE" | "COMPLETED" | "INACTIVE" | "PENDING";
+  status: "ACTIVE" | "DISCHARGED" | "ON_LEAVE" | "WAITLIST";
   inactivityReason: string | null;
   isSmoker: boolean;
   alcoholConsumption: "NONE" | "OCCASIONAL" | "FREQUENT";

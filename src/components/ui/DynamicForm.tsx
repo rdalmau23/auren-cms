@@ -82,8 +82,14 @@ export function DynamicForm({ schema, onSubmit, initialData = {}, isSubmitting =
                 value={value}
                 onChange={(e) => handleChange(field.id, e.target.value)}
                 required={field.required}
-                options={field.options || []}
-              />
+              >
+                <option value="">Seleccione una opción</option>
+                {field.options?.map((opt, i) => (
+                  <option key={i} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
             );
           case 'DATE':
             return (

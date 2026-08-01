@@ -10,6 +10,9 @@ const authMiddleware = withAuth({
 });
 
 export default function middleware(req: any, event: any) {
+  if (process.env.NEXT_PUBLIC_E2E_TEST === 'true') {
+    return;
+  }
   return (authMiddleware as any)(req, event);
 }
 

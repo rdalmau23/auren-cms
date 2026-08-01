@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { api } from "@/lib/api-client";
 import { RoleAwareFilters } from '@/components/ui/RoleAwareFilters';
 import { Patient, PageResponse } from "@/types";
+import { EventTracker } from '@/lib/analytics';
 
 const riskColors: Record<string, "success" | "warning" | "danger" | "default"> = {
   LOW: "success",
@@ -75,6 +76,20 @@ export default function PatientsPage() {
   });
 
   const patients = pageData?.content || [];
+
+  // Track search queries (debounced)
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+
+    const timeout = setTimeout(() => {
+      EventTracker.track({
+        name: 'Patient_Searched',
+        properties: { queryLength: searchQuery.trim().length }
+      });
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   return (
     <div className="flex flex-col h-full space-y-6 overflow-hidden">

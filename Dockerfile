@@ -19,6 +19,9 @@ COPY . .
 # We disable telemetry
 ENV NEXT_TELEMETRY_DISABLED 1
 
+# Move auren-shared to root because tsconfig points to ../auren-shared
+RUN mv auren-shared /auren-shared || true
+
 # Note: Standalone output must be enabled in next.config.mjs
 RUN npm run build
 

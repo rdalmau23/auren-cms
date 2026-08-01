@@ -1,0 +1,58 @@
+name: Deploy CMS to AWS ECS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AWS_REGION: eu-west-1
+  AWS_ROLE_ARN: arn:aws:iam::423535493684:role/auren-preprod-github-actions-role
+  ECR_REGISTRY: 423535493684.dkr.ecr.eu-west-1.amazonaws.com
+
+permissions:
+  id-token: write # Required for AWS OIDC authentication
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and Deploy CMS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout CMS Code
+        uses: actions/checkout@v4
+        with:
+          path: auren-cms
+
+      - name: Checkout Shared Code
+        uses: actions/checkout@v4
+        with:
+          repository: rdalmau/auren-shared
+          path: auren-shared
+          # IMPORTANTE: Si el repositorio auren-shared es privado, necesitarás crear un Personal Access Token (PAT)
+          # en GitHub, añadirlo como un Secret en este repositorio (ej. GH_PAT), y descomentar la siguiente línea:
+          # token: ${{ secrets.GH_PAT }}
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push CMS Image
+        run: |
+          cd auren-cms
+          # Copiamos shared dentro de cms para que Docker lo pueda meter en la imagen
+          cp -R ../auren-shared ./auren-shared
+          docker build --platform linux/amd64 -t ${{ env.ECR_REGISTRY }}/auren-preprod-cms:latest .
+          docker push ${{ env.ECR_REGISTRY }}/auren-preprod-cms:latest
+
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service --cluster auren-preprod-cluster --service auren-preprod-cms-service --force-new-deployment --region ${{ env.AWS_REGION }}
