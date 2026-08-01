@@ -29,7 +29,7 @@ jobs:
       - name: Checkout Shared Code
         uses: actions/checkout@v4
         with:
-          repository: rdalmau/auren-shared
+          repository: rdalmau23/auren-shared
           path: auren-shared
           # IMPORTANTE: Si el repositorio auren-shared es privado, necesitarás crear un Personal Access Token (PAT)
           # en GitHub, añadirlo como un Secret en este repositorio (ej. GH_PAT), y descomentar la siguiente línea:
