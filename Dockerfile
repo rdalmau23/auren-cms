@@ -45,6 +45,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# Copy auren-shared translations for runtime i18n (next-intl reads them via fs.readFile)
+# request.ts resolves to path.join(cwd(), '../auren-shared/...') → /auren-shared/...
+COPY --from=builder --chown=nextjs:nodejs /auren-shared /auren-shared
+
 USER nextjs
 
 EXPOSE 3000
