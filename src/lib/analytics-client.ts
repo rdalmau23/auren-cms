@@ -1,6 +1,13 @@
 import { getSession } from "next-auth/react";
 
-const ANALYTICS_BASE_URL = process.env.NEXT_PUBLIC_ANALYTICS_URL || "http://localhost:8001";
+const getAnalyticsBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+  return process.env.NEXT_PUBLIC_ANALYTICS_URL || "http://localhost:8001";
+};
+
+const ANALYTICS_BASE_URL = getAnalyticsBaseUrl();
 
 interface FetchOptions extends RequestInit {
   token?: string;

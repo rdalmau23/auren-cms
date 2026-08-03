@@ -106,7 +106,9 @@ export default function ChatPage() {
     const userId = (session as any)?.user?.id;
     if (!token || !userId) return;
 
-    const wsUrl = process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws').replace('/api', '/ws') || 'ws://localhost:8080/ws';
+    const wsUrl = typeof window !== 'undefined'
+      ? `ws://${window.location.host}/ws`
+      : (process.env.NEXT_PUBLIC_API_URL?.replace('http', 'ws').replace('/api', '/ws') || 'ws://localhost:8080/ws');
 
     const client = new Client({
       brokerURL: wsUrl,

@@ -1,6 +1,13 @@
 import { getSession } from "next-auth/react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+const getApiBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    return "/api";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 interface FetchOptions extends RequestInit {
   token?: string;

@@ -108,7 +108,7 @@ export default function PatientDetailPage() {
   const handleDownloadReport = async () => {
     try {
       setIsDownloading(true);
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+      const baseUrl = typeof window !== 'undefined' ? "/api" : (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api");
       const response = await fetch(`${baseUrl}/v1/reports/patients/${id}/pdf`, {
         headers: { 'Authorization': `Bearer ${(session as any)?.accessToken}` },
       });

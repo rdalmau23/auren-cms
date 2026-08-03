@@ -85,7 +85,9 @@ export function Header() {
                     onClick={async () => {
                       const idToken = (session as any)?.idToken;
                       await signOut({ redirect: false });
-                      const kcUrl = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8180";
+                      const kcUrl = window.location.hostname === 'localhost' 
+                        ? (process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8180")
+                        : window.location.origin;
                       let url = `${kcUrl}/realms/auren/protocol/openid-connect/logout?client_id=auren-cms&post_logout_redirect_uri=${encodeURIComponent(window.location.origin)}`;
                       if (idToken) {
                         url += `&id_token_hint=${idToken}`;
