@@ -85,11 +85,12 @@ export default function AnalyticsDashboardPage() {
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      // Intentar traducir la etiqueta si es una categoría
-      const translatedLabel = t(`categories.${label}` as any) || label;
+      // Intentar traducir la etiqueta si es una categoría, solo si existe label
+      const translatedLabel = label ? (t(`categories.${label}` as any) !== `categories.${label}` ? t(`categories.${label}` as any) : label) : null;
+      
       return (
         <div className="bg-white p-3 border border-gray-100 shadow-xl rounded-xl">
-          <p className="font-semibold text-gray-800 mb-1">{translatedLabel}</p>
+          {translatedLabel && <p className="font-semibold text-gray-800 mb-1">{translatedLabel}</p>}
           {payload.map((entry: any, index: number) => (
             <p key={index} style={{ color: entry.color }} className="text-sm font-medium flex items-center justify-between gap-4">
               <span>{entry.name}:</span>
